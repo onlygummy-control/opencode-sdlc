@@ -91,15 +91,26 @@ permissions:
   # Write forms of an otherwise blanket-allowed command. These must stay last:
   # last match wins, so placing them above `git branch*` would kill them.
   # Verified with `git branch -d <nonexistent>` returning permission.rejected.
+  # A write form has a long spelling that does not match its short flag:
+  # `--delete`/`-d`, `--force`/`-f`, `--move`/`-m`, `--copy`/`-c`,
+  # `--track`/`-t`, and `--unset-upstream`. Each one needs its own rule.
   - { action: "shell", resource: "git branch -d*", effect: "deny" }
   - { action: "shell", resource: "git branch -D*", effect: "deny" }
+  - { action: "shell", resource: "git branch --delete*", effect: "deny" }
   - { action: "shell", resource: "git branch -f*", effect: "deny" }
+  - { action: "shell", resource: "git branch --force*", effect: "deny" }
   - { action: "shell", resource: "git branch -m*", effect: "deny" }
   - { action: "shell", resource: "git branch -M*", effect: "deny" }
+  - { action: "shell", resource: "git branch --move*", effect: "deny" }
   - { action: "shell", resource: "git branch -c*", effect: "deny" }
   - { action: "shell", resource: "git branch -C*", effect: "deny" }
+  - { action: "shell", resource: "git branch --copy*", effect: "deny" }
+  - { action: "shell", resource: "git branch -t*", effect: "deny" }
+  - { action: "shell", resource: "git branch --track*", effect: "deny" }
+  - { action: "shell", resource: "git branch --no-track*", effect: "deny" }
   - { action: "shell", resource: "git branch -u*", effect: "deny" }
   - { action: "shell", resource: "git branch --set-upstream-to*", effect: "deny" }
+  - { action: "shell", resource: "git branch --unset-upstream*", effect: "deny" }
   - { action: "shell", resource: "git branch --edit-description*", effect: "deny" }
   # `git tag` is only allowed as read sub-forms above, but a write flag can be
   # appended to one of them. Deny the write flags explicitly.
@@ -114,6 +125,10 @@ permissions:
   # `--output=<file>` turns a read command into a file write.
   - { action: "shell", resource: "git * --output*", effect: "deny" }
 ---
+
+You are `plan`, the default primary agent of this configuration. A session starts
+here and the user reaches the other agents by switching tabs. You are not `build`,
+`review`, `ship`, `scribe`, or `branch-keeper`.
 
 ## Role
 

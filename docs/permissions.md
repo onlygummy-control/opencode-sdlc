@@ -38,10 +38,15 @@ command after its own deny. See [ADR 0005](adr/0005-per-agent-git-rules.md).
 | Agent | Edit scope | Shell scope |
 | --- | --- | --- |
 | `plan` | Files under `.opencode/plan/` | Read-only git and read-only file commands |
-| `build` | Code and config; docs files are denied | Full allow, but `git *` is denied except read forms, `git add`, `git rm`, `git mv`, and `git stash`; test runners ask |
+| `build` | Code and config; docs files are denied | Full allow, but `git *` is denied except read forms, `git add`, `git rm`, `git mv`, and `git stash`; branch write forms are denied; test runners ask |
+| `branch-keeper` | Nothing | Read-only state checks plus `git switch -c*`; destructive switch forms and branch deletion are denied |
 | `review` | Nothing | Read-only git, test runners, and lint; no `add`, `commit`, or `push` |
-| `ship` | Nothing | Git write path and `gh pr` read and create; `push` and remote branch deletion ask, merge and force push are denied |
+| `ship` | Nothing | Git write path and `gh pr` read and create; push is allowed, remote branch deletion asks, and trunk push, force push, prune, tag push, and merge are denied |
 | `scribe` | The docs tree and `README.md` | Nothing |
+
+`ship` pushes without a prompt, but it denies `git push --prune` and
+`git push --follow-tags`. `--prune` deletes remote refs without the delete ask.
+`--follow-tags` pushes tags, and `--tags` is already denied.
 
 ## How patterns match
 
@@ -59,8 +64,12 @@ resource, so an allow has to cover every stage. See
 
 A wildcard allow can inherit a write form hidden inside it. `git branch*` would
 also permit `git branch -d`, so `ship` follows that allow with an explicit deny
-for `-d` and `-D`. `git diff --output=<file>` writes a file through a command
-that reads as inspection, so `plan`, `review`, and `ship` deny `git * --output*`.
+for `-d` and `-D`. A short flag and its long spelling are separate patterns, so
+every denied branch write form lists both spellings: `-d`/`--delete`,
+`-f`/`--force`, `-m`/`--move`, `-c`/`--copy`, `-t`/`--track`, and
+`-u`/`--set-upstream-to`, plus `--unset-upstream`, which has no short form.
+`git diff --output=<file>` writes a file through a command that reads as
+inspection, so `plan`, `review`, and `ship` deny `git * --output*`.
 
 The unstage rule shows the fix. `git restore --staged -W` touches only the
 index under `--staged`, but the `-W` flag reaches the worktree without matching
@@ -76,3 +85,16 @@ that can reach `git -C` can commit. `--output=<file>` needs its own deny because
 a rule cannot say "this flag, in this position". Closing either gap would need
 argument-aware matching, which the permission layer does not offer. Both are
 accepted and recorded in [ADR 0005](adr/0005-per-agent-git-rules.md).
+
+Windows matches patterns without case, so `git switch -c` and `git switch -C`
+cannot be separated. The branch-exists pre-check in `branch-keeper` is the guard
+for the force form. Trunk push rules have to spell out `main` and `development`,
+because a pattern cannot read `origin/HEAD` at run time.
+
+The guard sees the literal command string, so a command substitution such as
+`git push origin $(echo main)` matches no trunk deny and reaches the allow. The
+same limit covers any push option that omits a refspec, such as
+`git push --repo=origin`, because the default push then runs with no branch named
+in the string. `ship` pushes unattended, so the prompt still has to forbid the
+trunk push, and both bypasses are accepted and recorded in
+[ADR 0017](adr/0017-destructive-git-forms-are-denied.md).
