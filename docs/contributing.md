@@ -9,6 +9,9 @@ the agent to the table in `README.md`.
 Rules are appended after the global baseline, and the last match wins. Read
 [permissions.md](permissions.md) before writing the list.
 
+A subagent that touches git must copy the guard block from the closest existing
+agent, because each agent file keeps its own copy and there is no shared include.
+
 ## Add a skill
 
 Create a folder under `skills/` with a `SKILL.md`. The frontmatter holds `name`
@@ -33,11 +36,13 @@ padded to four digits. Glossary entries follow the shape already in
 ## Change flow
 
 1. `plan` settles the requirements and records the decisions.
-2. `build` implements the change and runs lint.
+2. `build` creates the short-lived branch through `branch-keeper`, implements the
+   change, and runs lint.
 3. `review` verifies the diff and writes the commit message.
-4. `ship` commits, pushes after approval, and opens the PR.
+4. `ship` commits, pushes, and opens the PR.
 
-The user merges on the web, deletes the branch there, and pulls the trunk.
+The user merges on the web. `ship` then verifies the merge, deletes the remote
+branch after approval, and pulls the trunk.
 
 ## Commits
 

@@ -1,13 +1,13 @@
 # OpenCode agent configuration
 
 This repo configures OpenCode: four primary agents (plan, build, review, ship),
-one docs subagent (scribe), the global permission baseline, and the skills those
-agents load. The domain is agent behavior, not application code.
+two subagents (scribe and branch-keeper), the global permission baseline, and the
+skills those agents load. The domain is agent behavior, not application code.
 
 ## Language
 
 **Agent**: One named assistant profile: a system prompt, a mode, and a permission
-set. This repo defines four primary agents and one subagent. The reviewer runs in
+set. This repo defines four primary agents and two subagents. The reviewer runs in
 a fresh context with no history of how the code it checks was written.
 
 _Avoid_: assistant, bot
@@ -63,6 +63,11 @@ numbering, never the decision, so a caller has to supply a brief.
 
 _Avoid_: docs bot, document writer
 
+**Branch-keeper**: The subagent that creates and validates the short-lived branch
+for a primary agent. It owns the branch mechanics, never the branch name.
+
+_Avoid_: mini-ship, branch bot, git helper
+
 **Usage doc**: `README.md`. It explains how to use the config and is not a place
 for design notes; those go under `docs/`.
 
@@ -86,22 +91,27 @@ rather than assuming `main`, because a repo may keep its trunk on
 
 _Avoid_: main branch, master
 
-**Short-lived branch**: A branch that carries one change and lives hours to a
-couple of days before merging into the trunk. The thing it is not is a
-long-lived integration branch, which holds unmerged work for weeks.
+**Short-lived branch**: A branch that carries one change, cut from the trunk by
+branch-keeper before the first edit, and lives hours to a couple of days before
+merging back. The thing it is not is a long-lived integration branch, which holds
+unmerged work for weeks.
 
 _Avoid_: dev branch, feature branch
 
-**Ship agent**: The `ship` main agent that owns branch, commit, push, and pull
-request. It is a primary agent selected by tab, not a subagent, and it starts
-only when the user switches to it deliberately. It holds git and gh permissions
-of its own so the other agents stay read-only, and it stops before merge.
+**Ship agent**: The `ship` main agent that owns commit, push, and pull request.
+It is a primary agent selected by tab, not a subagent, and it starts only when
+the user switches to it deliberately. It holds git and gh permissions of its own
+so the other agents stay read-only, and it stops before merge. On the normal path
+it no longer cuts the branch: it commits, pushes, and opens the PR on the branch
+branch-keeper created. A fallback branch is cut only for work that was never
+branched.
 
 _Avoid_: VCS agent, git bot, commit bot
 
-**Commit gate**: The approval point before an action that cannot be undone from
-the machine. Here it is push: a local commit can still be fixed, a pushed one
-is already on the remote.
+**Commit gate**: The point where a change leaves the machine for good. Push is
+not it: a push runs unattended on a short-lived branch that can still be
+corrected or abandoned. The gate is the merge click on the web, the last time a
+person reads the diff before it reaches the trunk.
 
 _Avoid_: approval step, checkpoint
 

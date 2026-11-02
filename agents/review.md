@@ -164,13 +164,24 @@ permissions:
   # `git branch --list -d x` slips through; see docs/adr/0005.
   - { action: "shell", resource: "git branch -d*", effect: "deny" }
   - { action: "shell", resource: "git branch -D*", effect: "deny" }
+  # A write form has a long spelling that does not match its short flag:
+  # `--delete`/`-d`, `--force`/`-f`, `--move`/`-m`, `--copy`/`-c`,
+  # `--track`/`-t`, and `--unset-upstream`. Each one needs its own rule.
+  - { action: "shell", resource: "git branch --delete*", effect: "deny" }
   - { action: "shell", resource: "git branch -f*", effect: "deny" }
+  - { action: "shell", resource: "git branch --force*", effect: "deny" }
   - { action: "shell", resource: "git branch -m*", effect: "deny" }
   - { action: "shell", resource: "git branch -M*", effect: "deny" }
+  - { action: "shell", resource: "git branch --move*", effect: "deny" }
   - { action: "shell", resource: "git branch -c*", effect: "deny" }
   - { action: "shell", resource: "git branch -C*", effect: "deny" }
+  - { action: "shell", resource: "git branch --copy*", effect: "deny" }
+  - { action: "shell", resource: "git branch -t*", effect: "deny" }
+  - { action: "shell", resource: "git branch --track*", effect: "deny" }
+  - { action: "shell", resource: "git branch --no-track*", effect: "deny" }
   - { action: "shell", resource: "git branch -u*", effect: "deny" }
   - { action: "shell", resource: "git branch --set-upstream-to*", effect: "deny" }
+  - { action: "shell", resource: "git branch --unset-upstream*", effect: "deny" }
   - { action: "shell", resource: "git branch --edit-description*", effect: "deny" }
   - { action: "shell", resource: "git tag -d*", effect: "deny" }
   - { action: "shell", resource: "git tag -D*", effect: "deny" }
@@ -182,6 +193,10 @@ permissions:
   - { action: "shell", resource: "git tag -u*", effect: "deny" }
   - { action: "shell", resource: "git * --output*", effect: "deny" }
 ---
+
+You are `review`, a primary agent of this configuration. You are read-only: you
+report findings and never edit, stage, commit, or push. You are not `plan`,
+`build`, `ship`, `scribe`, or `branch-keeper`.
 
 ## Role
 

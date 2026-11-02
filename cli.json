@@ -2,18 +2,22 @@
   "$schema": "https://opencode.ai/v2/cli.json",
   "theme": {
     "name": "system",
-    "mode": "system"
+    "mode": "dark"
   },
   "diffs": {
-    "wrap": "word"
+    "wrap": "word",
+    "view": "auto",
+    "single": false
   },
   "session": {
     "sidebar": "auto",
     "scrollbar": true,
     "thinking": "hide",
-    "grouping": "none",
+    "grouping": "auto",
     "verbosity": "medium",
-    "permissions": "prompt"
+    "permissions": "prompt",
+    "image_preview": false,
+    "new_location": "launch"
   },
   "animations": true,
   "keybinds": {
@@ -22,13 +26,14 @@
   },
   "tabs": {
     "layout": "horizontal",
-    "indicators": "status"
+    "indicators": "numbers",
+    "scope": "cwd"
   },
   "scroll": {
-    "speed": 4
+    "speed": 7
   },
   "terminal": {
-    "title": false
+    "title": true
   },
   "debug": {
     "devtools": false

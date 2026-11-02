@@ -42,13 +42,16 @@ is more than one commit. Stop and report the split.
 
 ```powershell
 git fetch origin
-git switch -c <type>/<slug>
+git branch --show-current
 ```
 
-- Slug is kebab-case, describes the change, and the whole name stays under 40
-  characters: `feat/pipeline-allowlist`.
+- If `branch-keeper` already created the branch for this work, the check returns
+  it. Stay on it and say so instead of stacking another branch.
 - If the current branch is already a short-lived branch for this work, stay on
   it and say so instead of stacking another branch.
+- Otherwise cut it once: `git switch -c <type>/<slug>`. Slug is kebab-case,
+  describes the change, and the whole name stays under 40 characters:
+  `feat/pipeline-allowlist`.
 - Do not `pull` while the tree is dirty. Switching keeps the uncommitted
   changes, and the PR diff is computed from the merge base, so a slightly
   behind trunk costs nothing.
@@ -86,9 +89,9 @@ git status --short
 git diff --cached --stat
 ```
 
-Every staged file must belong to the stated purpose. If one does not, report it
-and let the user decide. This agent cannot unstage files, so the only safe move
-is to stop before committing.
+Every staged file must belong to the stated purpose. If one does not, take it
+back out of the index with `git reset -- <path>` and stage the right paths. If
+the change itself is wrong, stop before committing and let the user decide.
 
 ## Step 6 — Commit
 
@@ -118,15 +121,16 @@ Expect exactly the commits you intended, usually one. This agent does not run
 tests or lint: verification belongs to the review agent. If the change was not
 verified, say so in the PR body instead of implying it was.
 
-## Step 8 — Push, the gate
+## Step 8 — Push
 
-Print the staged stat and the full commit message first. Then:
+Print the staged stat and the full commit message first, then:
 
 ```powershell
 git push -u origin <branch>
 ```
 
-The push permission is `ask`, so the user approves this exact step. If the
+Push runs unattended. Only a short-lived branch is reachable: a trunk target is
+denied, force push is denied, and deleting a remote branch still asks. If the
 remote rejects it as non-fast-forward, stop. Never force push, never rebase,
 never delete and re-push.
 
