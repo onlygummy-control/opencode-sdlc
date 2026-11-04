@@ -40,11 +40,11 @@ the right tab and a subagent never offers to switch to another agent.
 ## review
 
 It verifies the commits against the trunk in a fresh context. It cannot edit,
-stage, commit, or push. It takes a baseline with `git worktree` at a scratch
-path, not `git stash`, because a failed stash pop would strand the user's
-changes. It runs a static security scan and the `requesting-code-review`
-pipeline, then cross-checks the commit message against the diff instead of
-writing it.
+stage, commit, or push. The baseline is the merge base with the trunk. A
+`git worktree` at a scratch path is used only while the tree is still dirty,
+because `git stash` would strand the user's changes if the pop failed. It runs
+a static security scan and the `requesting-code-review` pipeline, then
+cross-checks the commit message against the diff instead of writing it.
 
 ## ship
 
