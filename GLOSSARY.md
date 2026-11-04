@@ -100,20 +100,21 @@ not is a long-lived integration branch, which holds unmerged work for weeks.
 
 _Avoid_: dev branch, feature branch
 
-**Ship agent**: The `ship` main agent that owns commit, push, and pull request.
-It is a primary agent selected by tab, not a subagent, and it starts only when
-the user switches to it deliberately. It holds git and gh permissions of its own
-so the other agents stay read-only, and it stops before merge. On the normal path
-it no longer cuts the branch: it commits, pushes, and opens the PR on the branch
-branch-keeper created. A fallback branch is cut only for work that was never
-branched.
+**Ship agent**: The `ship` main agent that owns push and the pull request. It is
+a primary agent selected by tab, not a subagent, and it starts only when the
+user switches to it deliberately. It holds git and gh permissions of its own so
+the other agents stay read-only, and it stops before merge. On the normal path
+it pushes the commit `build` wrote and opens the PR on the branch branch-keeper
+created; it commits only when the tree arrives uncommitted. A fallback branch is
+cut only for work that was never branched.
 
 _Avoid_: VCS agent, git bot, commit bot
 
 **Commit gate**: The point where a change leaves the machine for good. Push is
 not it: a push runs unattended on a short-lived branch that can still be
-corrected or abandoned. The gate is the merge click on the web, the last time a
-person reads the diff before it reaches the trunk.
+corrected or abandoned. A commit is local and reversible, so `build` writes one
+on the short-lived branch. The gate is the merge click on the web, the last time
+a person reads the diff before it reaches the trunk.
 
 _Avoid_: approval step, checkpoint
 
