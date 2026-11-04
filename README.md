@@ -33,9 +33,9 @@ Switch agents with `tab`.
 ## Flow
 
 1. `plan` clarifies the request and records decisions through `scribe`. When the request is fuzzy it loads `grill-with-docs`, which runs the grilling interview and writes ADRs and glossary entries as decisions settle.
-2. `build` dispatches `branch-keeper` to cut the short-lived branch, then edits, runs lint, and sends any docs work to `scribe`.
+2. `build` dispatches `branch-keeper`, or cuts the short-lived branch itself when the subagent is unavailable, then edits, runs lint, and sends any docs work to `scribe`.
 3. `review` loads `requesting-code-review`, verifies the diff in a fresh context, and writes the conventional commit message.
-4. `ship` loads `git-workflow`, commits, pushes without a prompt, and opens the PR on the short-lived branch.
+4. `ship` loads `git-workflow`, dispatches `branch-keeper` for an unbranched clean tree, commits, pushes without a prompt, and opens the PR on the short-lived branch.
 5. You merge on the web. `ship` verifies the merge, deletes the remote branch after approval, and pulls the trunk.
 
 ## Human gates

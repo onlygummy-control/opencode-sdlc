@@ -33,6 +33,11 @@ permissions:
   # Staging belongs to build so it can control the index end to end. The commit
   # gate is unchanged: `git commit*` and `git push*` never get an allow here.
   - { action: "shell", resource: "git add*", effect: "allow" }
+  # Build may cut the short-lived branch itself, in addition to dispatching
+  # branch-keeper. Unlike the subagent it holds no pre-check of its own, so the
+  # prompt carries the state machine: read the trunk, refuse a dirty tree,
+  # refuse an existing name. See docs/adr/0019.
+  - { action: "shell", resource: "git switch*", effect: "allow" }
   # Read-only git. Layer 1: commands with no write mode at all. Must stay under
   # the `git *` deny above, so appending at the end of this block is required.
   - { action: "shell", resource: "git blame*", effect: "allow" }
@@ -139,6 +144,16 @@ permissions:
   - { action: "shell", resource: "git branch --set-upstream-to*", effect: "deny" }
   - { action: "shell", resource: "git branch --unset-upstream*", effect: "deny" }
   - { action: "shell", resource: "git branch --edit-description*", effect: "deny" }
+
+  # Destructive switch forms. Last match wins over the `git switch*` allow above.
+  # `git switch -C` cannot be separated from `-c`: Windows matches patterns
+  # without case. The prompt's `git branch --list` pre-check is the guard for
+  # that form, the same residual risk branch-keeper records.
+  - { action: "shell", resource: "git switch -f*", effect: "deny" }
+  - { action: "shell", resource: "git switch --force*", effect: "deny" }
+  - { action: "shell", resource: "git switch --discard-changes*", effect: "deny" }
+  - { action: "shell", resource: "git switch --detach*", effect: "deny" }
+  - { action: "shell", resource: "git switch --orphan*", effect: "deny" }
 ---
 
 You are `build`, a primary agent of this configuration. The user reaches you by
@@ -172,6 +187,15 @@ You must apply these 6 principles to every line of code you generate or review:
    trunk, a different branch already checked out, or a name that exists, stop and
    report that instead of editing. One change per branch; never work on the
    trunk.
+
+   **Fallback:** when the subagent is denied, unavailable, or the user asks you to
+   branch inline, run the same checks yourself before `git switch -c <type/slug>`:
+   `git rev-parse --abbrev-ref origin/HEAD` for the trunk (drop `origin/`),
+   `git branch --show-current` for where you are, `git status --short` for a dirty
+   tree, and `git branch --list <name>` for a name that already exists. Stop on the
+   same three conditions and name the one that stopped you. Never use
+   `git switch -C`, never force, and never switch away from the branch you created.
+   Keep this guard list in step with `branch-keeper`; when one changes, change both.
 
 4. **Plan & Apply:** Mentally map out how to implement the solution strictly using the 6 rules. Strip away any unnecessary requirements (YAGNI) and simplify the logic (KISS).
 

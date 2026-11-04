@@ -36,8 +36,8 @@ padded to four digits. Glossary entries follow the shape already in
 ## Change flow
 
 1. `plan` settles the requirements and records the decisions.
-2. `build` creates the short-lived branch through `branch-keeper`, implements the
-   change, and runs lint.
+2. `build` gets the short-lived branch from `branch-keeper`, or cuts it itself
+   when the subagent is unavailable, then implements the change and runs lint.
 3. `review` verifies the diff and writes the commit message.
 4. `ship` commits, pushes, and opens the PR.
 

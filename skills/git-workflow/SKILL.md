@@ -13,13 +13,14 @@ skip step 0, and never push before step 8.
 ```powershell
 git rev-parse --show-toplevel
 git status --short
-git symbolic-ref refs/remotes/origin/HEAD
+git rev-parse --abbrev-ref origin/HEAD
 git remote -v
 ```
 
 - Name the repo path in your first line of output. A session opened in the
   wrong directory must be caught here, not after a commit.
-- The trunk is whatever `origin/HEAD` points at. If it does not resolve, try
+- The trunk is whatever `origin/HEAD` points at; `--abbrev-ref` prints it as
+  `origin/main`, so drop the `origin/` prefix. If it does not resolve, try
   `git remote show origin` and read "HEAD branch".
 - No remote means there is nothing to push to. Stop.
 
@@ -49,9 +50,12 @@ git branch --show-current
   it. Stay on it and say so instead of stacking another branch.
 - If the current branch is already a short-lived branch for this work, stay on
   it and say so instead of stacking another branch.
-- Otherwise cut it once: `git switch -c <type>/<slug>`. Slug is kebab-case,
-  describes the change, and the whole name stays under 40 characters:
-  `feat/pipeline-allowlist`.
+- Otherwise the work was never branched. When the tree is clean, dispatch
+  `branch-keeper`; it reads the trunk, refuses an existing name, and cuts the
+  branch. When the reviewed change is still in the tree, its dirty-trunk guard
+  would refuse, so cut the branch once yourself: `git switch -c <type>/<slug>`.
+  Slug is kebab-case, describes the change, and the whole name stays under 40
+  characters: `feat/pipeline-allowlist`. Never use `git switch -C`.
 - Do not `pull` while the tree is dirty. Switching keeps the uncommitted
   changes, and the PR diff is computed from the merge base, so a slightly
   behind trunk costs nothing.
