@@ -19,7 +19,8 @@ with `git switch -c <type/slug>` after the same four checks and the same three
 stops. It edits only after the branch exists. It cannot write `README.md`,
 `GLOSSARY.md`, `GLOSSARY-MAP.md`, or anything under `docs/`; a decision that
 needs recording goes to `scribe` through a brief. It runs lint only. Tests belong
-to `review`. It can stage the index but cannot commit or push.
+to `review`. It stages and commits one change on the short-lived branch, and it
+still cannot push.
 
 ## branch-keeper
 
@@ -38,16 +39,18 @@ the right tab and a subagent never offers to switch to another agent.
 
 ## review
 
-It verifies a diff in a fresh context. It cannot edit, stage, commit, or push.
-It takes a baseline with `git worktree` at a scratch path, not `git stash`,
-because a failed stash pop would strand the user's changes. It runs a static
-security scan and the `requesting-code-review` pipeline, then writes the commit
-message in conventional commit form. The user commits.
+It verifies the commits against the trunk in a fresh context. It cannot edit,
+stage, commit, or push. It takes a baseline with `git worktree` at a scratch
+path, not `git stash`, because a failed stash pop would strand the user's
+changes. It runs a static security scan and the `requesting-code-review`
+pipeline, then cross-checks the commit message against the diff instead of
+writing it.
 
 ## ship
 
-It reads the trunk from `origin/HEAD`, commits, pushes, and opens the PR on the
-short-lived branch that `build` or `branch-keeper` cut. A fallback branch is cut
+It reads the trunk from `origin/HEAD`, pushes the commit `build` wrote, and
+opens the PR on the short-lived branch that `build` or `branch-keeper` cut. It
+commits only when the tree arrives uncommitted. A fallback branch is cut
 only when the work was never branched: through `branch-keeper` when the tree is
 clean, or by `ship` itself when the reviewed change is still in the tree and the
 subagent's dirty-trunk check would refuse it. After you merge, it verifies the PR
@@ -78,7 +81,7 @@ subagents.
 
 | Gate | Owner | Why |
 | --- | --- | --- |
-| Review passes | `review` | A commit lands only after the diff has been checked in a fresh context |
+| Review passes | `review` | The diff is checked in a fresh context before `ship` pushes, and a failed verdict sends the work back to `build` |
 | Merge | user, on the web | No automated test run gates the PR, so the merge click is the check that the diff was read |
 | Branch deletion | user approves, `ship` checks | A deleted remote branch is hard to recover |
 | Release | user | `release-please` reads conventional commits and opens the release PR; no one creates tags by hand |

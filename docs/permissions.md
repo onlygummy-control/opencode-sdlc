@@ -38,7 +38,7 @@ command after its own deny. See [ADR 0005](adr/0005-per-agent-git-rules.md).
 | Agent | Edit scope | Shell scope |
 | --- | --- | --- |
 | `plan` | Files under `.opencode/plan/` | Read-only git and read-only file commands |
-| `build` | Code and config; docs files are denied | Full allow, but `git *` is denied except read forms, `git add`, `git rm`, `git mv`, `git stash`, and `git switch*`; the destructive switch forms are denied; test runners ask |
+| `build` | Code and config; docs files are denied | Full allow, but `git *` is denied except read forms, `git add`, `git rm`, `git mv`, `git stash`, `git commit`, and `git switch*`; `--amend` is allowed only on an unpushed commit, `--no-verify` and `-n` are denied, push stays denied, and the destructive switch forms are denied; test runners ask |
 | `branch-keeper` | Nothing | Read-only state checks plus `cd *` and `git switch -c*`; destructive switch forms and branch deletion are denied |
 | `review` | Nothing | Read-only git, test runners, and lint; no `add`, `commit`, or `push` |
 | `ship` | Nothing | Git write path and `gh pr` read and create; may dispatch `branch-keeper` when the tree is clean; push is allowed, remote branch deletion asks, and trunk push, force push, prune, tag push, and merge are denied |
@@ -82,6 +82,12 @@ index under `--staged`, but the `-W` flag reaches the worktree without matching
 a deny written for `--worktree`. `git reset -- <path>` replaced it: after `--`,
 every word is a pathspec, so the allowed form has no flag surface. See
 [ADR 0010](adr/0010-ship-can-unstage.md).
+
+`build` now holds a commit write. A commit stays on the local branch and can be
+amended or dropped, so it is not where work leaves the machine; the merge click
+on the web is still the only gate. `ship` keeps its commit path as a fallback
+for a tree that arrives uncommitted. See
+[ADR 0020](adr/0020-build-writes-the-commit.md).
 
 ## Residual risk
 
