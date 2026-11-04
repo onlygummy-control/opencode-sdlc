@@ -13,19 +13,25 @@ edit code, commit, or push.
 ## build
 
 It writes and refactors code and config. Before the first edit it dispatches
-`branch-keeper` to cut the short-lived branch. It edits only after the subagent
-reports success. It cannot write `README.md`, `GLOSSARY.md`, `GLOSSARY-MAP.md`,
-or anything under `docs/`; a decision that needs recording goes to `scribe`
-through a brief. It runs lint only. Tests belong to `review`. It can stage the
-index but cannot commit or push.
+`branch-keeper` to cut the short-lived branch. When the subagent is denied,
+unavailable, or the user asks for the branch inline, it cuts the branch itself
+with `git switch -c <type/slug>` after the same four checks and the same three
+stops. It edits only after the branch exists. It cannot write `README.md`,
+`GLOSSARY.md`, `GLOSSARY-MAP.md`, or anything under `docs/`; a decision that
+needs recording goes to `scribe` through a brief. It runs lint only. Tests belong
+to `review`. It can stage the index but cannot commit or push.
 
 ## branch-keeper
 
-A subagent, launched by `build`. It cuts the short-lived branch from the trunk
-before the first edit, or stops and names the condition that blocked it: a
-different branch already checked out, a dirty trunk, or a branch name that
-exists. It edits nothing and holds one git write, `git switch -c*`; the rest is
-state reads. It never force-switches or reuses a name.
+A subagent, launched by `build`, and by `ship` on a clean tree. It cuts the
+short-lived branch from the trunk before the first edit, or stops and names the
+condition that blocked it: a different branch already checked out, a dirty
+trunk, or a branch name that exists. It is no longer the only owner of branch
+creation: `build` holds the same `git switch*` allow and repeats the guard in its
+own prompt, so the two lists change together. It edits nothing and holds one git
+write, `git switch -c*`, plus `cd *` so it can set the repo as the shell's
+working directory; `git -C` is still not allowed. The rest is state reads. It
+never force-switches or reuses a name.
 
 Every agent now opens its system prompt by naming its own id, so a handoff names
 the right tab and a subagent never offers to switch to another agent.
@@ -41,9 +47,11 @@ message in conventional commit form. The user commits.
 ## ship
 
 It reads the trunk from `origin/HEAD`, commits, pushes, and opens the PR on the
-short-lived branch that `branch-keeper` created. A fallback branch is cut only
-when the work was never branched. After you merge, it verifies the PR state,
-deletes the merged branch after approval, and pulls the trunk.
+short-lived branch that `build` or `branch-keeper` cut. A fallback branch is cut
+only when the work was never branched: through `branch-keeper` when the tree is
+clean, or by `ship` itself when the reviewed change is still in the tree and the
+subagent's dirty-trunk check would refuse it. After you merge, it verifies the PR
+state, deletes the merged branch after approval, and pulls the trunk.
 
 It deletes only when all four checks pass:
 

@@ -13,6 +13,8 @@ permissions:
   # stopped it instead of a vague "could not create the branch".
   - { action: "shell", resource: "git rev-parse --show-toplevel", effect: "allow" }
   - { action: "shell", resource: "git rev-parse --abbrev-ref HEAD", effect: "allow" }
+  # `--abbrev-ref origin/HEAD` prints `origin/<trunk>`: one read, no write mode.
+  - { action: "shell", resource: "git rev-parse --abbrev-ref origin/HEAD", effect: "allow" }
   - { action: "shell", resource: "git status --short", effect: "allow" }
   - { action: "shell", resource: "git status --porcelain*", effect: "allow" }
   - { action: "shell", resource: "git branch --show-current", effect: "allow" }
@@ -27,6 +29,10 @@ permissions:
   # The trunk is read, never assumed. Same exact pattern as ship: a wildcard
   # would also permit `git symbolic-ref HEAD refs/heads/x`, which writes HEAD.
   - { action: "shell", resource: "git symbolic-ref refs/remotes/origin/HEAD", effect: "allow" }
+  # The brief carries a repo path, and a model often opens with `cd <repo>`.
+  # A denied stage blocks the whole command, so `cd` is allowed; it only changes
+  # the working directory of the shell it runs in.
+  - { action: "shell", resource: "cd *", effect: "allow" }
 
   # The only write this agent holds.
   - { action: "shell", resource: "git switch -c*", effect: "allow" }
@@ -81,9 +87,16 @@ Read the state first. Then take exactly one of these exits.
 
 ## Order of work
 
-1. `git rev-parse --show-toplevel` and `git symbolic-ref
-   refs/remotes/origin/HEAD`. Name the repo in your first line of output. If
-   `origin/HEAD` does not resolve, stop and say so; you may not guess `main`.
+Run each git command as the whole command string, one command per call. Pass the
+repo path as the shell tool's working directory when it accepts one. A
+`cd <repo>` prefix is allowed, but `git -C <path>` is not: the allowlist matches
+whole command strings, so it reads as an unknown command, and a `git -C *` allow
+would also reach the write forms this agent must not have.
+
+1. `git rev-parse --show-toplevel` and `git rev-parse --abbrev-ref origin/HEAD`.
+   The second prints `origin/<trunk>`; drop the `origin/` prefix. Name the repo
+   in your first line of output. If `origin/HEAD` does not resolve, stop and say
+   so; you may not guess `main`.
 2. `git branch --show-current` and `git status --short`, then apply the state
    machine above.
 3. `git branch --list <name>`. A name that already exists stops the run. Do not

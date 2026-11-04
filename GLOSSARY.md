@@ -64,7 +64,9 @@ numbering, never the decision, so a caller has to supply a brief.
 _Avoid_: docs bot, document writer
 
 **Branch-keeper**: The subagent that creates and validates the short-lived branch
-for a primary agent. It owns the branch mechanics, never the branch name.
+for a primary agent. It is not the sole owner of branch creation: `build` carries
+the same guard as a fallback when the subagent is unavailable, so a rule change
+has to land in both places. It owns the branch mechanics, never the branch name.
 
 _Avoid_: mini-ship, branch bot, git helper
 
@@ -92,9 +94,9 @@ rather than assuming `main`, because a repo may keep its trunk on
 _Avoid_: main branch, master
 
 **Short-lived branch**: A branch that carries one change, cut from the trunk by
-branch-keeper before the first edit, and lives hours to a couple of days before
-merging back. The thing it is not is a long-lived integration branch, which holds
-unmerged work for weeks.
+branch-keeper, or by build when the subagent is unavailable, before the first
+edit, and lives hours to a couple of days before merging back. The thing it is
+not is a long-lived integration branch, which holds unmerged work for weeks.
 
 _Avoid_: dev branch, feature branch
 
