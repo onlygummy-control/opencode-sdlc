@@ -1,11 +1,14 @@
-// Cloudflare Worker: OpenCode Go proxy with a shared access key.
-const UPSTREAM = 'https://opencode.ai/inference/go'
+// Cloudflare Worker: OpenCode Go and Zen proxy with a shared access key.
+const UPSTREAMS = {
+  go: 'https://opencode.ai/inference/go',
+  zen: 'https://opencode.ai/inference',
+}
 const SCHEMA_URL = 'https://opencode.ai/config.json'
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
 
 // Only these upstream path prefixes are reachable through the proxy.
-const ALLOWED_PATH = /^\/(?:v1|openai\/v1|anthropic\/v1|google\/v1beta)\//
+const ALLOWED_PATH = /^\/(?:zen\/)?(?:v1|openai\/v1|anthropic\/v1|google\/v1beta)\//
 
 const MAX_BODY_BYTES = 32 * 1024 * 1024
 const UPSTREAM_TIMEOUT_MS = 5 * 60 * 1000
@@ -148,8 +151,12 @@ export default {
       return json(413, { error: 'Payload too large' })
     }
 
-    const destination = new URL(UPSTREAM + url.pathname + url.search)
-    if (!destination.pathname.startsWith('/inference/go/')) {
+    const isZen = url.pathname === '/zen' || url.pathname.startsWith('/zen/')
+    const upstreamPath = isZen ? url.pathname.slice('/zen'.length) : url.pathname
+    const upstreamBase = isZen ? UPSTREAMS.zen : UPSTREAMS.go
+    const destination = new URL(upstreamBase + upstreamPath + url.search)
+    const expectedPrefix = isZen ? '/inference/' : '/inference/go/'
+    if (!destination.pathname.startsWith(expectedPrefix)) {
       return json(404, { error: 'Not found' })
     }
 

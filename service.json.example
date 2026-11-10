@@ -4,6 +4,6 @@
     "OPENCODE_DISABLE_FREE_MODELS": "1",
     "PROXY_BASE_URL": "https://<worker-host>/v1",
     "PROXY_KEY": "<proxy-key>",
-    "PROXY_OPENCODE_GO_API_KEY": "<opencode-go-api-key>"
+    "PROXY_OPENCODE_API_KEY": "<opencode-console-api-key>"
   }
 }
