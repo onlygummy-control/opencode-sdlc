@@ -2,3 +2,5 @@
 # The copy already sitting in history still needs a purge; ignore rules alone
 # only stop new changes from being staged.
 service.json
+.env
+*.bak
