@@ -8,8 +8,7 @@
     "proxy": {
       "name": "Proxy",
       "package": "@opencode/ai/providers/openai-compatible",
-      // New name first; the old name remains until service.json is renamed.
-      "env": ["PROXY_OPENCODE_API_KEY", "PROXY_OPENCODE_GO_API_KEY"],
+      "env": ["PROXY_OPENCODE_API_KEY"],
       "settings": {
         "baseURL": "{env:PROXY_BASE_URL}",
       },

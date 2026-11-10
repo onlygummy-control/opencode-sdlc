@@ -30,10 +30,9 @@ upstream API key come from environment variables, so none enters git.
 
 The provider ID is `proxy`. It is a custom provider, so `opencode.jsonc`
 declares `package: "@opencode/ai/providers/openai-compatible"` as the default
-runtime and `env: ["PROXY_OPENCODE_API_KEY", "PROXY_OPENCODE_GO_API_KEY"]`. The
-list tries the new name first and keeps the old name as a temporary fallback.
-`settings.baseURL` is `{env:PROXY_BASE_URL}`, `headers.x-proxy-key` is
-`{env:PROXY_KEY}`, and `$schema` points at `https://opencode.ai/config.json`.
+runtime and `env: ["PROXY_OPENCODE_API_KEY"]`. `settings.baseURL` is
+`{env:PROXY_BASE_URL}`, `headers.x-proxy-key` is `{env:PROXY_KEY}`, and
+`$schema` points at `https://opencode.ai/config.json`.
 There is no `canonical`. The plugin supplies the models, so there is no manual
 `models` block.
 
@@ -72,11 +71,6 @@ than one upstream under the same provider.
    ```
 
 9. Reload or restart OpenCode if the plugin does not pick up the change.
-
-If your `service.json` still defines `PROXY_OPENCODE_GO_API_KEY`, add
-`PROXY_OPENCODE_API_KEY` with the same value and restart the service. Remove the
-old name from the provider `env` list in `opencode.jsonc` in a follow-up. Until
-then, the old name keeps the current session working.
 
 `PROXY_KEY` is the Worker access key; `PROXY_OPENCODE_API_KEY` is the upstream
 key. `OPENCODE_DISABLE_FREE_MODELS` turns off the console free-model fetch.
@@ -136,6 +130,8 @@ curl -i -X POST "https://<worker-host>/zen/openai/v1/chat/completions" \
 - 200 means the key can reach the paid model and the workspace has credits.
 - 402 means the workspace needs credits.
 - 403 means the key permission or the model rule blocks the call; check both.
+- 429 with `FreeUsageLimitError` means a free Zen model hit the free usage
+  limit through the proxy. Use a paid Zen model or a Go free model instead.
 
 For other protocols, send the request through the matching Worker path:
 
@@ -209,7 +205,7 @@ credential.
 
 | Symptom | Cause |
 | --- | --- |
-| 401 `Unauthorized` | `x-proxy-key` is missing or does not match the Cloudflare secret, or the upstream key is missing or wrong. The provider tries `PROXY_OPENCODE_API_KEY` first and falls back to `PROXY_OPENCODE_GO_API_KEY` |
+| 401 `Unauthorized` | `x-proxy-key` is missing or does not match the Cloudflare secret, or the upstream key is missing or wrong |
 | 400 `MissingSessionID` | the client did not send `x-opencode-session` |
 | 404 `Not found` | the path is outside the Worker route list |
 | Plugin does not load | `PROXY_BASE_URL` is missing, or the service did not restart |
