@@ -25,7 +25,19 @@ type CatalogModel = {
     {
       base_url?: string
       sdk?: { opencodeai?: string }
-      compatibility?: { reasoning_field?: string }
+      compatibility?: {
+        reasoning_field?: string
+        require_reasoning?: boolean
+        max_tokens_field?: "max_completion_tokens" | "max_tokens"
+        require_finish_reason?: boolean
+        require_assistant_after_tool?: boolean
+        supports_prompt_cache_key?: boolean
+        stream_usage?: boolean
+        cache_format?: "anthropic" | "alibaba"
+        supports_thinking_block_binding?: boolean
+        supports_effort_updates?: boolean
+        media_input?: "assets" | "state" | "root"
+      }
     }
   >
 }
@@ -72,8 +84,20 @@ function toModel(
     family: entry.family,
     package: packageName,
     settings: { baseURL: proxyBase(origin, api?.base_url, zen) },
-    compatibility: api?.compatibility?.reasoning_field
-      ? { reasoningField: api.compatibility.reasoning_field }
+    compatibility: api?.compatibility
+      ? {
+          reasoningField: api.compatibility.reasoning_field,
+          requireReasoning: api.compatibility.require_reasoning,
+          maxTokensField: api.compatibility.max_tokens_field,
+          requireFinishReason: api.compatibility.require_finish_reason,
+          requireAssistantAfterTool: api.compatibility.require_assistant_after_tool,
+          supportsPromptCacheKey: api.compatibility.supports_prompt_cache_key,
+          streamUsage: api.compatibility.stream_usage,
+          cacheFormat: api.compatibility.cache_format,
+          supportsThinkingBlockBinding: api.compatibility.supports_thinking_block_binding,
+          supportsEffortUpdates: api.compatibility.supports_effort_updates,
+          mediaInput: api.compatibility.media_input,
+        }
       : undefined,
     capabilities: {
       tools: entry.capabilities?.tools?.supported ?? true,
