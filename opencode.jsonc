@@ -6,7 +6,18 @@
   "$schema": "https://opencode.ai/config.json",
   "providers": {
     "opencode-go": {
+      "name": "OpenCode Go (legacy)",
+      "settings": {
+        "baseURL": "{env:PROXY_BASE_URL}",
+      },
+      "headers": {
+        "x-proxy-key": "{env:PROXY_KEY}",
+      },
+    },
+    "proxy": {
       "name": "Proxy",
+      "package": "@opencode/ai/providers/openai-compatible",
+      "env": ["OPENCODE_API_KEY"],
       "settings": {
         "baseURL": "{env:PROXY_BASE_URL}",
       },

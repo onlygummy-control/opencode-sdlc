@@ -1,6 +1,6 @@
 import { Model, Plugin, Provider } from "@opencode/plugin"
 
-const PROVIDER_ID = "opencode-go"
+const PROVIDER_ID = "proxy"
 const REFRESH_MS = 30 * 60 * 1000
 
 type CatalogModel = {
@@ -144,6 +144,10 @@ export default Plugin.define({
     const state = { models: initial }
 
     await ctx.provider.transform((editor) => {
+      editor.update(PROVIDER_ID, (provider) => {
+        provider.package ??= "@opencode/ai/providers/openai-compatible"
+        provider.activation = "enabled"
+      })
       editor.models.set(PROVIDER_ID, state.models)
     })
 
