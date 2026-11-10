@@ -39,16 +39,22 @@ const PACKAGE_BY_API: Record<string, string> = {
   "generate-content": "@opencode/ai/providers/google",
 }
 
-// The upstream catalog advertises absolute opencode.ai URLs that already
-// include the Worker's /inference/go prefix. Strip that prefix, then point the
-// protocol path at the proxy origin so requests cannot bypass the Worker.
-function proxyBase(origin: string, upstream?: string) {
-  if (!upstream) return `${origin}/openai/v1`
-  const path = new URL(upstream).pathname.replace(/^\/inference\/go/, "")
-  return origin + path
+// The catalog advertises absolute opencode.ai URLs. Strip the Go or Zen prefix,
+// then point the protocol path at the proxy origin so requests stay on the Worker.
+function proxyBase(origin: string, upstream: string | undefined, zen: boolean) {
+  const prefix = zen ? "/zen" : ""
+  if (!upstream) return `${origin}${prefix}/openai/v1`
+  const pattern = zen ? /^\/inference/ : /^\/inference\/go/
+  const path = new URL(upstream).pathname.replace(pattern, "")
+  return `${origin}${prefix}${path}`
 }
 
-function toModel(providerID: Provider.ID, origin: string, entry: CatalogModel): Model.Info {
+function toModel(
+  providerID: Provider.ID,
+  origin: string,
+  entry: CatalogModel,
+  zen: boolean
+): Model.Info {
   const [protocol, api] = Object.entries(entry.api ?? {})[0] ?? ["chat-completions", undefined]
   const packageName =
     api?.sdk?.opencodeai ??
@@ -57,13 +63,15 @@ function toModel(providerID: Provider.ID, origin: string, entry: CatalogModel): 
 
   const text = entry.cost?.text
   const released = entry.release_date ? Date.parse(entry.release_date) : NaN
+  const id = zen ? `zen-${entry.id}` : entry.id
 
   return {
-    ...Model.Info.default(providerID, Model.ID.make(entry.id)),
-    name: entry.name,
+    ...Model.Info.default(providerID, Model.ID.make(id)),
+    modelID: Model.ID.make(entry.id),
+    name: `[${zen ? "ZEN" : "GO"}] ${entry.name}`,
     family: entry.family,
     package: packageName,
-    settings: { baseURL: proxyBase(origin, api?.base_url) },
+    settings: { baseURL: proxyBase(origin, api?.base_url, zen) },
     compatibility: api?.compatibility?.reasoning_field
       ? { reasoningField: api.compatibility.reasoning_field }
       : undefined,
@@ -96,12 +104,13 @@ function toModel(providerID: Provider.ID, origin: string, entry: CatalogModel): 
   } as unknown as Model.Info
 }
 
-async function loadCatalog(baseURL: string): Promise<Catalog> {
+async function loadCatalog(url: string, apiKey?: string): Promise<Catalog> {
   const headers: Record<string, string> = {}
   const proxyKey = process.env.PROXY_KEY
   if (proxyKey) headers["x-proxy-key"] = proxyKey
+  if (apiKey) headers.authorization = `Bearer ${apiKey}`
 
-  const response = await fetch(`${baseURL.replace(/\/+$/, "")}/models`, {
+  const response = await fetch(url, {
     headers,
     signal: AbortSignal.timeout(5000),
   })
@@ -127,15 +136,36 @@ export default Plugin.define({
       return
     }
 
-    let initial: Model.Info[] = []
-    try {
-      const catalog = await loadCatalog(baseURL)
-      initial = catalog.data.map((entry) => toModel(providerID, origin, entry))
-    } catch (error) {
-      console.error("proxy catalog: initial load failed", error)
-      return
+    const goURL = `${baseURL.replace(/\/+$/, "")}/models`
+    const zenURL = `${origin}/zen/v1/models`
+    const zenKey = process.env.PROXY_OPENCODE_API_KEY
+    if (!zenKey) {
+      console.error("proxy catalog: PROXY_OPENCODE_API_KEY is not set; Zen models are skipped")
     }
 
+    const load = async (): Promise<Model.Info[]> => {
+      const models: Model.Info[] = []
+
+      try {
+        const go = await loadCatalog(goURL)
+        models.push(...go.data.map((entry) => toModel(providerID, origin, entry, false)))
+      } catch (error) {
+        console.error("proxy catalog: Go load failed", error)
+      }
+
+      if (zenKey) {
+        try {
+          const zen = await loadCatalog(zenURL, zenKey)
+          models.push(...zen.data.map((entry) => toModel(providerID, origin, entry, true)))
+        } catch (error) {
+          console.error("proxy catalog: Zen load failed", error)
+        }
+      }
+
+      return models
+    }
+
+    const initial = await load()
     if (initial.length === 0) {
       console.error("proxy catalog: catalog is empty")
       return
@@ -154,8 +184,7 @@ export default Plugin.define({
 
     const refresh = async () => {
       try {
-        const catalog = await loadCatalog(baseURL)
-        const next = catalog.data.map((entry) => toModel(providerID, origin, entry))
+        const next = await load()
         if (next.length === 0) return
         state.models = next
         await ctx.provider.reload()
