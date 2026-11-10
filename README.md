@@ -1,8 +1,34 @@
-# OpenCode config
+# opencode-sdlc
 
 This repo is a personal OpenCode configuration, installed at `~/.config/opencode`
-(`%USERPROFILE%\.config\opencode` on Windows). It defines four primary agents,
-two subagents, a global permission baseline, and the skills those agents load.
+(`%USERPROFILE%\.config\opencode` on Windows). It defines seven agents, a global
+permission baseline, and the skills those agents load.
+
+## Principles
+
+Machines do the work and run the checks. Humans own the verdict.
+
+Automated tools can lint, typecheck, and run tests. They can catch syntax
+errors, missing imports, and broken builds. They cannot catch a wrong
+assumption, a misread requirement, or a diff that passes every check but
+solves the wrong problem. That takes a person reading the change with fresh
+eyes.
+
+Every gate in this setup exists to make human review easier, not to replace
+it:
+
+- `review` checks the diff in a clean context and reports findings, but it
+  does not merge.
+- `ship` runs the checks and opens the PR, but it merges only after the
+  wait script confirms the branch is safe.
+- `ship` never uses `--admin`, so a branch protection rule that blocks the
+  merge stops the run instead of being bypassed.
+- The local branch stays after the merge. `ship` cannot delete it, because a
+  pattern that allows `-d` also allows `-D` on Windows. The user decides
+  when to clean up.
+
+Automation handles the mechanical work: staging, committing, pushing, polling
+for checks, merging, and syncing the trunk. Judgment stays with the human.
 
 ## Install
 
