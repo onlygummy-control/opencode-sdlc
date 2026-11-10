@@ -45,6 +45,19 @@ allowance.
 The custom provider is deliberate: it hosts Go and Zen models from more than one
 upstream under the same provider.
 
+### Provider settings
+
+`settings` sets three timeouts to `300000` milliseconds, which is five minutes:
+`timeout`, `headerTimeout`, and `chunkTimeout`. `proxy.js` aborts the upstream
+request at the same five minutes, so the client and the Worker stop at the same
+point. The Worker runs on the Cloudflare free plan, which cannot be assumed to
+stream longer. An earlier recommendation to use fifteen minutes does not apply
+while the Worker is on the free plan.
+
+`cache` sets `ttl: "5m"`, so the prompt cache is on with a five-minute TTL.
+Warming is off: it would send extra requests and spend tokens. `compaction` sets
+`type: "summary"`, which keeps a long session from growing without bound.
+
 ### Set up the proxy
 
 1. Deploy `proxy.js` to the Worker bound to your custom domain. Nothing in the repo deploys it, so use the Cloudflare dashboard or Wrangler.
@@ -155,6 +168,12 @@ does not cover.
 | Stripped headers | `Host`, `cf-*`, `x-forwarded-*`, `x-real-ip`, `true-client-ip`, `cookie`, `origin`, `referer`, `x-opencode-client`, `x-client-version`, `x-proxy-key` |
 | Upstream request | Browser User-Agent, and no CORS headers added to inference responses |
 
+`proxy.js` aborts the upstream request after five minutes. A stream longer than
+five minutes is cut by design on the free plan. To raise the limit, raise the
+Worker timeout and the provider timeouts in the same change. The Worker copies
+the upstream response headers and drops only `set-cookie`, so `Retry-After` still
+reaches the client.
+
 ### Catalog plugin
 
 The plugin loads two catalogs at startup and every 30 minutes. The Go catalog
@@ -184,6 +203,13 @@ default and sets `activation: "enabled"` before `editor.models.set("proxy",
 models)`. On the same transform it calls `editor.remove("opencode-go")`, so the
 model picker shows only `proxy` and cannot fall back to the built-in provider's
 blocked direct endpoint. Each refresh calls `ctx.provider.reload()`.
+
+On each catalog entry the plugin copies the full compatibility block: reasoning
+field, require reasoning, max token field, require finish reason, require
+assistant after tool, supports prompt cache key, stream usage, cache format,
+thinking block binding, effort updates, and media input. The max token field and
+the cache fields keep requests stable and prompt caching effective, and stream
+usage reports usage on streamed responses.
 
 If `PROXY_OPENCODE_API_KEY` is missing, the plugin logs and skips the Zen catalog
 but still loads Go. If the initial load returns nothing, it logs the error and
