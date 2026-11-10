@@ -119,7 +119,13 @@ export default Plugin.define({
       console.error("proxy catalog: PROXY_BASE_URL is not set")
       return
     }
-    const origin = new URL(baseURL).origin
+    let origin: string
+    try {
+      origin = new URL(baseURL).origin
+    } catch {
+      console.error("proxy catalog: PROXY_BASE_URL is invalid")
+      return
+    }
 
     let initial: Model.Info[] = []
     try {
