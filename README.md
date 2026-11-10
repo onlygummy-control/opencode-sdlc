@@ -23,7 +23,7 @@ upstream API key come from environment variables, so none enters git.
 | Path | Role |
 | --- | --- |
 | `worker.js` | Cloudflare Worker that proxies Go inference to `https://opencode.ai/inference/go` and Zen inference to `https://opencode.ai/inference` |
-| `plugins/proxy-catalog.ts` | Server plugin that loads the model catalog from the proxy |
+| `plugins/proxy-catalog.ts` | Server plugin that loads the Go and Zen catalogs from the proxy |
 | `opencode.jsonc` | Configures `proxy` against the Worker through `{env:...}` placeholders |
 | `service.json` | Local, gitignored file with the service password and the `PROXY_BASE_URL`, `PROXY_KEY`, and `PROXY_OPENCODE_API_KEY` environment |
 | `service.json.example` | Tracked template for `service.json` |
@@ -41,8 +41,8 @@ it upstream for Go and Zen. Go requests use `/inference/go` and count against th
 Go allowance. Zen requests draw from the workspace balance, not the Go
 allowance.
 
-The custom provider is deliberate: a future omni proxy can add models from more
-than one upstream under the same provider.
+The custom provider is deliberate: it hosts Go and Zen models from more than one
+upstream under the same provider.
 
 ### Set up the proxy
 
@@ -99,16 +99,19 @@ If `/config.json` still reports `max-age=0`, purge that path once at the edge.
 
 Then check the provider in the TUI:
 
-- `/models` shows `Proxy` with the catalog models.
+- `/models` shows `Proxy` with `[GO]` and `[ZEN]` entries.
 - A `proxy/deepseek-v4.1-flash` prompt works.
-- `proxy/qwen3.8-flash` exercises Anthropic Messages.
-- `proxy/muse-spark-1.2-contributor` exercises OpenAI Responses.
+- `proxy/qwen3.8-flash` exercises Anthropic Messages, and
+  `proxy/muse-spark-1.2-contributor` exercises OpenAI Responses.
+- `proxy/zen-glm-5.3-flash` exercises chat, `proxy/zen-qwen3.8-flash` exercises
+  Anthropic Messages, and `proxy/zen-gpt-5-nano` exercises OpenAI Responses.
 - A 401 means `PROXY_OPENCODE_API_KEY` is missing or wrong, or the Worker
   key does not match.
 - No models means `/v1/models` failed or the plugin did not reload.
 
-Optional Zen check, which needs workspace credits and the Console key. First list
-the Zen catalog:
+Optional direct Zen check. The provider already lists the Zen models, so use this
+only to see a raw upstream status instead of a TUI error. It needs workspace
+credits and the Console key. First list the Zen catalog:
 
 ```bash
 curl -i -H "x-proxy-key: $PROXY_KEY" \
@@ -140,8 +143,9 @@ For other protocols, send the request through the matching Worker path:
 - `/zen/anthropic/v1/messages`
 - `/zen/google/v1beta/models/<model>:generateContent`
 
-The `/zen` route is ready for direct paid-model calls, but Zen models are not in
-`/models` yet.
+The `/zen` route takes direct paid-model calls. The provider lists the same Zen
+models, so these paths are only needed for a manual check or a protocol the TUI
+does not cover.
 
 ### Worker behavior
 
@@ -158,10 +162,21 @@ The `/zen` route is ready for direct paid-model calls, but Zen models are not in
 
 ### Catalog plugin
 
-The plugin loads `GET $PROXY_BASE_URL/models` at startup and every 30 minutes,
-sending `x-proxy-key`. It rewrites each catalog `api.*.base_url` path to the
-proxy origin and strips the upstream `/inference/go` prefix, so no model can
-bypass the Worker.
+The plugin loads two catalogs at startup and every 30 minutes. The Go catalog
+comes from `GET $PROXY_BASE_URL/models` with `x-proxy-key`. The Zen catalog comes
+from `GET /zen/v1/models` on the same origin, with `x-proxy-key` plus
+`Authorization: Bearer $PROXY_OPENCODE_API_KEY`. Both are merged into the one
+`proxy` provider. The Zen side depends on the key and workspace, so the total is
+the Go catalog plus the Zen models that key can see.
+
+It rewrites each catalog `api.*.base_url` path to the proxy origin and strips the
+upstream `/inference/go` or `/inference` prefix, so no model can bypass the
+Worker. Go entries appear as `[GO] <catalog name>`, Zen entries as
+`[ZEN] <catalog name>`. A Go model keeps its catalog ID, for example
+`proxy/deepseek-v4.1-flash`. A Zen model gets a `zen-` ID prefix, for example
+`proxy/zen-glm-5.3-flash`, and its upstream `modelID` stays the original catalog
+ID. Because of the prefix, a Go and a Zen model with the same name, such as
+`qwen3.8-flash`, can both appear.
 
 `PROVIDER_ID` is `proxy`. The plugin sets each model's `package` from
 `sdk.opencodeai`: OpenAI Chat Completions uses
@@ -173,12 +188,12 @@ for models without an override. On transform the plugin also ensures that
 default and sets `activation: "enabled"` before `editor.models.set("proxy",
 models)`. On the same transform it calls `editor.remove("opencode-go")`, so the
 model picker shows only `proxy` and cannot fall back to the built-in provider's
-blocked direct endpoint. Each refresh calls `ctx.provider.reload()`. It loads the
-Go catalog only and never requests the Zen catalog. Merging the Zen catalog is
-the next step.
+blocked direct endpoint. Each refresh calls `ctx.provider.reload()`.
 
-If the initial load fails, the plugin logs the error and leaves the existing
-catalog alone. If `PROXY_BASE_URL` is missing, it logs and exits setup.
+If `PROXY_OPENCODE_API_KEY` is missing, the plugin logs and skips the Zen catalog
+but still loads Go. If the initial load returns nothing, it logs the error and
+leaves the existing catalog alone. If `PROXY_BASE_URL` is missing, it logs and
+exits setup.
 
 ### Cheap model checks
 
@@ -188,10 +203,11 @@ catalog alone. If `PROXY_BASE_URL` is missing, it logs and exits setup.
 | `qwen3.8-flash` | Anthropic messages | 0.15 input, 0.47 output |
 | `muse-spark-1.2-contributor` | OpenAI responses | 0.10 input, 0.20 output |
 
-These three cover the three protocols at the lowest cost. Skip `qwen3.8-max`,
-`gemini-4-argon`, and `grok-4.7` for cheap tests. Send test messages and read the
-responses through `/models` in the TUI, because both need the stored OpenCode
-credential.
+These are Go IDs; the Zen versions carry the `zen-` prefix and draw from the
+workspace balance. These three cover the three protocols at the lowest cost. Skip
+`qwen3.8-max`, `gemini-4-argon`, and `grok-4.7` for cheap tests. Send test
+messages and read the responses through `/models` in the TUI, because both need
+the stored OpenCode credential.
 
 ### Security
 
