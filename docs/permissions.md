@@ -40,7 +40,7 @@ and are not in git.
 
 | Agent | Edit scope | Shell scope |
 | --- | --- | --- |
-| `plan` | Files under `.opencode/plan/` | Read-only git and read-only file commands |
+| `plan` | Files under `.opencode/plan/` | Read-only git, read-only file and exploration commands, and project run commands (lint and typecheck run without a prompt; test and verify ask first) |
 | `build` | Code and config; docs files are denied | Full allow, but `git *` is denied except read forms, `git add`, `git rm`, `git mv`, `git stash`, `git commit`, and `git switch*`; `--amend` is allowed only on an unpushed commit, `--no-verify` and `-n` are denied, push stays denied, and the destructive switch forms are denied; test runners ask |
 | `branchwright` | Nothing | Read-only state checks plus `cd *` and `git switch -c*`; destructive switch forms and branch deletion are denied |
 | `verify` | Nothing | Read-only git, lint and typecheck commands, and test runners that ask |

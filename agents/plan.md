@@ -75,8 +75,49 @@ permissions:
   - { action: "shell", resource: "Get-Content *", effect: "allow" }
   - { action: "shell", resource: "Select-String *", effect: "allow" }
   - { action: "shell", resource: "Test-Path *", effect: "allow" }
+  - { action: "shell", resource: "find *", effect: "allow" }
+  - { action: "shell", resource: "head *", effect: "allow" }
+  - { action: "shell", resource: "tail *", effect: "allow" }
+  - { action: "shell", resource: "grep *", effect: "allow" }
+  - { action: "shell", resource: "pwd *", effect: "allow" }
+  - { action: "shell", resource: "tree *", effect: "allow" }
+  - { action: "shell", resource: "wc *", effect: "allow" }
+  - { action: "shell", resource: "file *", effect: "allow" }
+  - { action: "shell", resource: "stat *", effect: "allow" }
+  - { action: "shell", resource: "Get-Item *", effect: "allow" }
+  - { action: "shell", resource: "Get-Location *", effect: "allow" }
+  - { action: "shell", resource: "Get-Command *", effect: "allow" }
+  - { action: "shell", resource: "Select-Object *", effect: "allow" }
+  - { action: "shell", resource: "Format-Table *", effect: "allow" }
+  - { action: "shell", resource: "Format-List *", effect: "allow" }
+  - { action: "shell", resource: "Sort-Object *", effect: "allow" }
+  - { action: "shell", resource: "Measure-Object *", effect: "allow" }
+  - { action: "shell", resource: "Get-Member *", effect: "allow" }
+  - { action: "shell", resource: "ConvertTo-Json *", effect: "allow" }
   - { action: "shell", resource: "Write-Output *", effect: "allow" }
   - { action: "shell", resource: "echo *", effect: "allow" }
+  # Project commands (read-only inspection). Write forms ask first because they
+  # can change files or take significant time. Covers the common package managers.
+  - { action: "shell", resource: "bun run test*", effect: "ask" }
+  - { action: "shell", resource: "bun run verify*", effect: "ask" }
+  - { action: "shell", resource: "bun run *", effect: "ask" }
+  - { action: "shell", resource: "bun run lint*", effect: "allow" }
+  - { action: "shell", resource: "bun run typecheck*", effect: "allow" }
+  - { action: "shell", resource: "npm run test*", effect: "ask" }
+  - { action: "shell", resource: "npm run verify*", effect: "ask" }
+  - { action: "shell", resource: "npm run *", effect: "ask" }
+  - { action: "shell", resource: "npm run lint*", effect: "allow" }
+  - { action: "shell", resource: "npm run typecheck*", effect: "allow" }
+  - { action: "shell", resource: "yarn run test*", effect: "ask" }
+  - { action: "shell", resource: "yarn run verify*", effect: "ask" }
+  - { action: "shell", resource: "yarn run *", effect: "ask" }
+  - { action: "shell", resource: "yarn run lint*", effect: "allow" }
+  - { action: "shell", resource: "yarn run typecheck*", effect: "allow" }
+  - { action: "shell", resource: "pnpm run test*", effect: "ask" }
+  - { action: "shell", resource: "pnpm run verify*", effect: "ask" }
+  - { action: "shell", resource: "pnpm run *", effect: "ask" }
+  - { action: "shell", resource: "pnpm run lint*", effect: "allow" }
+  - { action: "shell", resource: "pnpm run typecheck*", effect: "allow" }
   # Read-only pipeline stages. The scanner checks each pipe segment as its own
   # resource, so a pipeline needs an allow per cmdlet rather than one rule for
   # the whole line. `ForEach-Object` and `Where-Object` stay denied: their main
