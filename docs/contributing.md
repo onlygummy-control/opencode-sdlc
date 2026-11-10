@@ -18,10 +18,17 @@ Create a folder under `skills/` with a `SKILL.md`. The frontmatter holds `name`
 and `description`. The description decides when the model loads the skill, so
 state the trigger.
 
+`build` can load `deslop` to strip AI code smells before a review, and
+`show-me-your-work` to prove a change with evidence instead of a claim. Both load
+on demand, when the skill description matches the work at hand.
+
 ## Write documents
 
 Dispatch `scribe`. It is the only writer of `README.md`, `GLOSSARY.md`,
 `GLOSSARY-MAP.md`, and files under `docs/`. `plan` and `build` both reach it.
+`GLOSSARY.md`, `GLOSSARY-MAP.md`, and `docs/adr/` are local-only development
+docs. They stay on disk and are not in git.
+
 Scribe loads the `docs-writing` skill for README and docs pages. It fixes the
 page types, the page shape, the length limits, and the compaction rules.
 
@@ -36,7 +43,7 @@ padded to four digits. Glossary entries follow the shape already in
 ## Change flow
 
 1. `plan` settles the requirements and records the decisions.
-2. `build` gets the short-lived branch from `branch-keeper`, or cuts it itself
+2. `build` gets the short-lived branch from `branchwright`, or cuts it itself
    when the subagent is unavailable, then implements the change and runs lint.
 3. `build` commits the change. `review` verifies the commits and cross-checks
    the commit message.

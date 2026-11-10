@@ -206,6 +206,7 @@ that's a regression. If baseline already had failures, only count NEW ones.
 Quick scan before the independent review:
 
 - [ ] No hardcoded secrets, API keys, or credentials
+- [ ] No local-only docs staged (`GLOSSARY.md`, `GLOSSARY-MAP.md`, `docs/adr/`, `.opencode/plan/`)
 - [ ] Input validation on user-provided data
 - [ ] SQL queries use parameterized statements
 - [ ] File operations validate paths (no traversal)

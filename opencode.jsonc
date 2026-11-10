@@ -11,15 +11,6 @@
       "env": ["PROXY_OPENCODE_API_KEY"],
       "settings": {
         "baseURL": "{env:PROXY_BASE_URL}",
-        "timeout": 300000,
-        "headerTimeout": 300000,
-        "chunkTimeout": 300000,
-        "cache": {
-          "ttl": "5m",
-        },
-        "compaction": {
-          "type": "summary",
-        },
       },
       "headers": {
         "x-proxy-key": "{env:PROXY_KEY}",
@@ -51,18 +42,27 @@
     // Per-agent git rules (the read-only allow list and the write-form denies)
     // live in ./agents/*.md, not here. See docs/adr/0005-per-agent-git-rules.md.
     { "action": "shell", "resource": "*", "effect": "deny" },
-    { "action": "shell", "resource": "git *", "effect": "allow" },
+    // Read-only inspection only. `git *` is no longer broad: agents that need writes
+    // (build, ship) re-allow the specific forms they own in their own files.
     { "action": "shell", "resource": "rg *", "effect": "allow" },
-    { "action": "shell", "resource": "cat *", "effect": "allow" },
-    { "action": "shell", "resource": "dir *", "effect": "allow" },
-    { "action": "shell", "resource": "ls *", "effect": "allow" },
-    { "action": "shell", "resource": "type *", "effect": "allow" },
     { "action": "shell", "resource": "Get-ChildItem *", "effect": "allow" },
     { "action": "shell", "resource": "Get-Content *", "effect": "allow" },
     { "action": "shell", "resource": "Select-String *", "effect": "allow" },
     { "action": "shell", "resource": "Test-Path *", "effect": "allow" },
-    { "action": "shell", "resource": "Write-Output *", "effect": "allow" },
-    { "action": "shell", "resource": "echo *", "effect": "allow" },
+    { "action": "shell", "resource": "git status*", "effect": "allow" },
+    { "action": "shell", "resource": "git diff*", "effect": "allow" },
+    { "action": "shell", "resource": "git log*", "effect": "allow" },
+    { "action": "shell", "resource": "git show*", "effect": "allow" },
+    { "action": "shell", "resource": "git branch*", "effect": "allow" },
+    { "action": "shell", "resource": "git rev-parse*", "effect": "allow" },
+    { "action": "shell", "resource": "git merge-base*", "effect": "allow" },
+    { "action": "shell", "resource": "git ls-files*", "effect": "allow" },
+    { "action": "shell", "resource": "git ls-tree*", "effect": "allow" },
+    { "action": "shell", "resource": "git grep*", "effect": "allow" },
+    { "action": "shell", "resource": "git cat-file*", "effect": "allow" },
+    { "action": "shell", "resource": "git remote -v*", "effect": "allow" },
+    { "action": "shell", "resource": "git remote get-url*", "effect": "allow" },
+    { "action": "shell", "resource": "git worktree list*", "effect": "allow" },
   ],
   // `lsp` was removed: V2 accepts the field but never runs language servers, so the
   // typescript-language-server and ty entries were dead configuration.

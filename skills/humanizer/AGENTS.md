@@ -42,6 +42,12 @@ Use Plain Language in code comments, prompts, documentation, descriptions, valid
 - Keep exact identifiers, commands, paths, schema fields, quotations, watched phrases, and behavior-bearing examples.
 - Keep the full technical meaning.
 
+## Dash sweep
+
+Prose must not contain long dashes (em dash, en dash, horizontal bar). Run `scripts/strip-dashes.ps1` on the files you changed, then read the result. The script is the deterministic guard: it reports every occurrence, and with `-Fix` it rewrites them to a comma or a hyphen. Fix any line where a colon or period reads better than the comma.
+
+Pattern 14 examples and the "before" passages below it are behavior-bearing: they show the dashes on purpose, so leave those occurrences alone. Do not run `-Fix` on `SKILL.md` or `README.md` without checking each hit.
+
 ## Editing the skill
 
 - Keep the YAML metadata valid.

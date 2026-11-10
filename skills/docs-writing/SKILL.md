@@ -13,6 +13,13 @@ Write documentation a reader can act on. Structure first, prose second.
 2. This skill: document type, page shape, compaction.
 3. `humanizer`: prose polish, after the structure is final.
 
+## Local-only artifacts
+
+`GLOSSARY.md`, `GLOSSARY-MAP.md`, and `docs/adr/` are development artifacts.
+Keep them on disk and out of git. Check `.gitignore` before writing one; report
+missing entries to the caller. Never stage them, and never treat a tracked copy
+as the target.
+
 ## Pick the type first
 
 | Type | Answers | Keep out |

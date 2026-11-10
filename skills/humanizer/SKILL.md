@@ -7,7 +7,7 @@ description: |
   voice, filler, or chatbot artifacts. Based on Wikipedia's "Signs of AI writing."
 license: MIT
 metadata:
-  version: "2.11.2"
+  version: "2.11.3"
 ---
 
 # Humanizer: remove AI writing patterns
@@ -26,6 +26,10 @@ When given text to humanize:
 4. **Match the voice.** Use the right tone for the text, such as formal, casual, or technical. Add personality only when the text and the writer call for it.
 
 The input type controls what you return. See [How to return the result](#how-to-return-the-result). Use the same rewrite process in every mode.
+
+## Long dashes
+
+Do not leave long dashes (em dash, en dash, horizontal bar) in prose. The `scripts/strip-dashes.ps1` script is the deterministic guard: it reports every occurrence, and with `-Fix` it rewrites them to a comma or a hyphen. Run it on the files you changed before you deliver the result, then read the rewritten lines and fix any place where a colon or period reads better.
 
 ## Match the writer's voice
 

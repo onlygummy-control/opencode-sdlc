@@ -4,3 +4,8 @@
 service.json
 .env
 *.bak
+
+# Development-only docs. Keep them on disk, never in git.
+GLOSSARY.md
+GLOSSARY-MAP.md
+docs/adr/
