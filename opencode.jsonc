@@ -14,6 +14,12 @@
         "timeout": 300000,
         "headerTimeout": 300000,
         "chunkTimeout": 300000,
+        "cache": {
+          "ttl": "5m",
+        },
+        "compaction": {
+          "type": "summary",
+        },
       },
       "headers": {
         "x-proxy-key": "{env:PROXY_KEY}",
