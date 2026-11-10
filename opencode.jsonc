@@ -8,9 +8,18 @@
     "proxy": {
       "name": "Proxy",
       "package": "@opencode/ai/providers/openai-compatible",
-      "env": ["PROXY_OPENCODE_GO_API_KEY"],
+      "env": ["PROXY_OPENCODE_API_KEY"],
       "settings": {
         "baseURL": "{env:PROXY_BASE_URL}",
+        "timeout": 300000,
+        "headerTimeout": 300000,
+        "chunkTimeout": 300000,
+        "cache": {
+          "ttl": "5m",
+        },
+        "compaction": {
+          "type": "summary",
+        },
       },
       "headers": {
         "x-proxy-key": "{env:PROXY_KEY}",
