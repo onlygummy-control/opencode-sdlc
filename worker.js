@@ -34,6 +34,18 @@ function isAuthorized(request, env) {
   return safeEqual(provided, expected)
 }
 
+// Reject separators that survive URL parsing, including double encoding.
+function hasEncodedSeparator(pathname) {
+  let value = pathname
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (/%2f|%5c|%00/i.test(value)) return true
+    const decoded = value.replace(/%25/gi, '%')
+    if (decoded === value) return false
+    value = decoded
+  }
+  return true
+}
+
 async function proxySchema() {
   try {
     const upstream = await fetch(SCHEMA_URL, {
@@ -76,9 +88,13 @@ function forwardHeaders(request) {
     'cf-ipcountry',
     'cf-visitor',
     'cdn-loop',
+    'forwarded',
     'x-forwarded-for',
+    'x-forwarded-host',
     'x-forwarded-proto',
     'x-real-ip',
+    'x-api-key',
+    'proxy-authorization',
     'true-client-ip',
     'connection',
     'keep-alive',
@@ -114,6 +130,10 @@ export default {
       return json(401, { error: 'Unauthorized' })
     }
 
+    if (hasEncodedSeparator(url.pathname)) {
+      return json(404, { error: 'Not found' })
+    }
+
     if (!ALLOWED_PATH.test(url.pathname)) {
       return json(404, { error: 'Not found' })
     }
@@ -128,10 +148,13 @@ export default {
       return json(413, { error: 'Payload too large' })
     }
 
-    const destination = UPSTREAM + url.pathname + url.search
+    const destination = new URL(UPSTREAM + url.pathname + url.search)
+    if (!destination.pathname.startsWith('/inference/go/')) {
+      return json(404, { error: 'Not found' })
+    }
 
     try {
-      const upstream = await fetch(destination, {
+      const upstream = await fetch(destination.toString(), {
         method: request.method,
         headers: forwardHeaders(request),
         body: request.method === 'GET' ? undefined : request.body,
