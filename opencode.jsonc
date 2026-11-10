@@ -11,6 +11,9 @@
       "env": ["PROXY_OPENCODE_API_KEY"],
       "settings": {
         "baseURL": "{env:PROXY_BASE_URL}",
+        "timeout": 300000,
+        "headerTimeout": 300000,
+        "chunkTimeout": 300000,
       },
       "headers": {
         "x-proxy-key": "{env:PROXY_KEY}",
