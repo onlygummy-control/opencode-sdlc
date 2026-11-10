@@ -144,6 +144,7 @@ export default Plugin.define({
     const state = { models: initial }
 
     await ctx.provider.transform((editor) => {
+      editor.remove("opencode-go")
       editor.update(PROVIDER_ID, (provider) => {
         provider.package ??= "@opencode/ai/providers/openai-compatible"
         provider.activation = "enabled"

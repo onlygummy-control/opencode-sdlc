@@ -24,7 +24,7 @@ API key come from environment variables, so none enters git.
 | --- | --- |
 | `worker.js` | Cloudflare Worker that proxies inference to `https://opencode.ai/inference/go` |
 | `plugins/proxy-catalog.ts` | Server plugin that loads the model catalog from the proxy |
-| `opencode.jsonc` | Configures `proxy` against the Worker through `{env:...}` placeholders, with a temporary `opencode-go` block |
+| `opencode.jsonc` | Configures `proxy` against the Worker through `{env:...}` placeholders |
 | `service.json` | Local, gitignored file with the service password and the `PROXY_BASE_URL`, `PROXY_KEY`, and `PROXY_OPENCODE_GO_API_KEY` environment |
 | `service.json.example` | Tracked template for `service.json` |
 
@@ -38,17 +38,6 @@ the models, so there is no manual `models` block.
 
 The custom provider is deliberate: a future omni proxy can add models from more
 than one upstream under the same provider.
-
-### Provider transition
-
-The `opencode-go` block stays for now, still pointed at the Worker through
-`PROXY_BASE_URL`, so the current session and old `opencode-go/...` model
-references keep working. Remove it only after `/models` shows `proxy`, the
-three protocol checks pass, and the session runs on `proxy/...`. Removing it
-earlier makes the selected model unusable at once.
-
-Removing the block does not remove the built-in provider. It reverts to the
-direct blocked endpoint, so ignore it or have the plugin remove it.
 
 ### Set up the proxy
 
@@ -141,7 +130,9 @@ bypass the Worker.
 `@opencode/ai/providers/google`. The provider-level package is only the default
 for models without an override. On transform the plugin also ensures that
 default and sets `activation: "enabled"` before `editor.models.set("proxy",
-models)`. Each refresh calls `ctx.provider.reload()`.
+models)`. On the same transform it calls `editor.remove("opencode-go")`, so the
+model picker shows only `proxy` and cannot fall back to the built-in provider's
+blocked direct endpoint. Each refresh calls `ctx.provider.reload()`.
 
 If the initial load fails, the plugin logs the error and leaves the existing
 catalog alone. If `PROXY_BASE_URL` is missing, it logs and exits setup.
