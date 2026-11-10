@@ -25,13 +25,13 @@ API key come from environment variables, so none enters git.
 | `worker.js` | Cloudflare Worker that proxies inference to `https://opencode.ai/inference/go` |
 | `plugins/proxy-catalog.ts` | Server plugin that loads the model catalog from the proxy |
 | `opencode.jsonc` | Configures `proxy` against the Worker through `{env:...}` placeholders, with a temporary `opencode-go` block |
-| `service.json` | Local, gitignored file with the service password and the `PROXY_BASE_URL`, `PROXY_KEY`, and `OPENCODE_API_KEY` environment |
+| `service.json` | Local, gitignored file with the service password and the `PROXY_BASE_URL`, `PROXY_KEY`, and `PROXY_OPENCODE_GO_API_KEY` environment |
 | `service.json.example` | Tracked template for `service.json` |
 
 The provider ID is `proxy`. It is a custom provider, so `opencode.jsonc`
 declares `package: "@opencode/ai/providers/openai-compatible"` as the default
-runtime and `env: ["OPENCODE_API_KEY"]`, the OpenCode Go API key the Worker
-forwards upstream. `settings.baseURL` is `{env:PROXY_BASE_URL}`,
+runtime and `env: ["PROXY_OPENCODE_GO_API_KEY"]`, the OpenCode Go API key
+the Worker forwards upstream. `settings.baseURL` is `{env:PROXY_BASE_URL}`,
 `headers.x-proxy-key` is `{env:PROXY_KEY}`, and `$schema` points at
 `https://opencode.ai/config.json`. There is no `canonical`. The plugin supplies
 the models, so there is no manual `models` block.
@@ -65,11 +65,11 @@ direct blocked endpoint, so ignore it or have the plugin remove it.
    -join ((1..64) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
    ```
 
-3. Copy `service.json.example` to `service.json`. The example lists `PROXY_BASE_URL`, `PROXY_KEY`, and `OPENCODE_API_KEY`.
+3. Copy `service.json.example` to `service.json`. The example lists `PROXY_BASE_URL`, `PROXY_KEY`, and `PROXY_OPENCODE_GO_API_KEY`.
 4. Set `password` to the local service password.
 5. Set `PROXY_BASE_URL` to the Worker base URL including `/v1`, for example `https://<worker-host>/v1`.
 6. Set `PROXY_KEY` to the same value as the Cloudflare secret.
-7. Set `OPENCODE_API_KEY` to the OpenCode Go API key the Worker forwards upstream.
+7. Set `PROXY_OPENCODE_GO_API_KEY` to the OpenCode Go API key the Worker forwards upstream.
 8. Restart the service:
 
    ```powershell
@@ -78,8 +78,9 @@ direct blocked endpoint, so ignore it or have the plugin remove it.
 
 9. Reload or restart OpenCode if the plugin does not pick up the change.
 
-`PROXY_KEY` is the Worker access key; `OPENCODE_API_KEY` is the upstream key.
-`OPENCODE_DISABLE_FREE_MODELS` turns off the console free-model fetch.
+`PROXY_KEY` is the Worker access key; `PROXY_OPENCODE_GO_API_KEY` is the
+upstream key. `OPENCODE_DISABLE_FREE_MODELS` turns off the console free-model
+fetch.
 
 `service.json` is gitignored. Never commit it. Other config changes reload
 automatically. A change to the environment in `service.json` needs a restart.
@@ -109,7 +110,8 @@ Then check the provider in the TUI:
 - A `proxy/deepseek-v4.1-flash` prompt works.
 - `proxy/qwen3.8-flash` exercises Anthropic Messages.
 - `proxy/muse-spark-1.2-contributor` exercises OpenAI Responses.
-- A 401 means `OPENCODE_API_KEY` is missing or wrong, or the Worker key does not match.
+- A 401 means `PROXY_OPENCODE_GO_API_KEY` is missing or wrong, or the Worker
+  key does not match.
 - No models means `/v1/models` failed or the plugin did not reload.
 
 ### Worker behavior
@@ -169,7 +171,7 @@ credential.
 
 | Symptom | Cause |
 | --- | --- |
-| 401 `Unauthorized` | `x-proxy-key` is missing or does not match the Cloudflare secret, or `OPENCODE_API_KEY` is missing or wrong |
+| 401 `Unauthorized` | `x-proxy-key` is missing or does not match the Cloudflare secret, or `PROXY_OPENCODE_GO_API_KEY` is missing or wrong |
 | 400 `MissingSessionID` | the client did not send `x-opencode-session` |
 | 404 `Not found` | the path is outside the Worker route list |
 | Plugin does not load | `PROXY_BASE_URL` is missing, or the service did not restart |
