@@ -14,9 +14,9 @@ Switch agents with `tab`.
 
 ## OpenCode Go proxy
 
-The agents call the `opencode-go` provider, which points at a Cloudflare Worker
-that proxies OpenCode Go inference. The Worker URL and the proxy key come from
-environment variables, so neither enters git.
+The agents call the `proxy` provider, which points at a Cloudflare Worker that
+proxies OpenCode Go inference. The Worker URL, the Worker key, and the upstream
+API key come from environment variables, so none enters git.
 
 ### Proxy files
 
@@ -24,16 +24,20 @@ environment variables, so neither enters git.
 | --- | --- |
 | `worker.js` | Cloudflare Worker that proxies inference to `https://opencode.ai/inference/go` |
 | `plugins/proxy-catalog.ts` | Server plugin that loads the model catalog from the proxy |
-| `opencode.jsonc` | Configures `opencode-go` against the proxy through `{env:...}` placeholders |
-| `service.json` | Local, gitignored file with the service password and proxy environment |
+| `opencode.jsonc` | Configures `proxy` against the Worker through `{env:...}` placeholders |
+| `service.json` | Local, gitignored file with the service password and the `PROXY_BASE_URL`, `PROXY_KEY`, and `PROXY_OPENCODE_GO_API_KEY` environment |
 | `service.json.example` | Tracked template for `service.json` |
 
-The provider ID stays `opencode-go`, so the existing connection and every agent
-model reference keep working. Only the display name is `Proxy`. In
-`opencode.jsonc`, `settings.baseURL` is `{env:PROXY_BASE_URL}`,
+The provider ID is `proxy`. It is a custom provider, so `opencode.jsonc`
+declares `package: "@opencode/ai/providers/openai-compatible"` as the default
+runtime and `env: ["PROXY_OPENCODE_GO_API_KEY"]`, the OpenCode Go API key
+the Worker forwards upstream. `settings.baseURL` is `{env:PROXY_BASE_URL}`,
 `headers.x-proxy-key` is `{env:PROXY_KEY}`, and `$schema` points at
-`https://opencode.ai/config.json`. The plugin supplies the models, so there is
-no manual `models` block.
+`https://opencode.ai/config.json`. There is no `canonical`. The plugin supplies
+the models, so there is no manual `models` block.
+
+The custom provider is deliberate: a future omni proxy can add models from more
+than one upstream under the same provider.
 
 ### Set up the proxy
 
@@ -50,17 +54,22 @@ no manual `models` block.
    -join ((1..64) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
    ```
 
-3. Copy `service.json.example` to `service.json`.
+3. Copy `service.json.example` to `service.json`. The example lists `PROXY_BASE_URL`, `PROXY_KEY`, and `PROXY_OPENCODE_GO_API_KEY`.
 4. Set `password` to the local service password.
 5. Set `PROXY_BASE_URL` to the Worker base URL including `/v1`, for example `https://<worker-host>/v1`.
-6. Set `PROXY_KEY` to the same value as the Cloudflare secret. `env.OPENCODE_DISABLE_FREE_MODELS` turns off the console free-model fetch.
-7. Restart the service:
+6. Set `PROXY_KEY` to the same value as the Cloudflare secret.
+7. Set `PROXY_OPENCODE_GO_API_KEY` to the OpenCode Go API key the Worker forwards upstream.
+8. Restart the service:
 
    ```powershell
    opencode service restart
    ```
 
-8. Reload or restart OpenCode if the plugin does not pick up the change.
+9. Reload or restart OpenCode if the plugin does not pick up the change.
+
+`PROXY_KEY` is the Worker access key; `PROXY_OPENCODE_GO_API_KEY` is the
+upstream key. `OPENCODE_DISABLE_FREE_MODELS` turns off the console free-model
+fetch.
 
 `service.json` is gitignored. Never commit it. Other config changes reload
 automatically. A change to the environment in `service.json` needs a restart.
@@ -84,6 +93,16 @@ curl -i -X OPTIONS "https://<worker-host>/v1/models"
 
 If `/config.json` still reports `max-age=0`, purge that path once at the edge.
 
+Then check the provider in the TUI:
+
+- `/models` shows `Proxy` with the catalog models.
+- A `proxy/deepseek-v4.1-flash` prompt works.
+- `proxy/qwen3.8-flash` exercises Anthropic Messages.
+- `proxy/muse-spark-1.2-contributor` exercises OpenAI Responses.
+- A 401 means `PROXY_OPENCODE_GO_API_KEY` is missing or wrong, or the Worker
+  key does not match.
+- No models means `/v1/models` failed or the plugin did not reload.
+
 ### Worker behavior
 
 | Rule | Behavior |
@@ -101,9 +120,19 @@ If `/config.json` still reports `max-age=0`, purge that path once at the edge.
 The plugin loads `GET $PROXY_BASE_URL/models` at startup and every 30 minutes,
 sending `x-proxy-key`. It rewrites each catalog `api.*.base_url` path to the
 proxy origin and strips the upstream `/inference/go` prefix, so no model can
-bypass the Worker. The runtime package comes from `sdk.opencodeai` and maps to
-openai-compatible, anthropic, openai/responses, or google. Each refresh calls
-`editor.models.set("opencode-go", models)` and `ctx.provider.reload()`.
+bypass the Worker.
+
+`PROVIDER_ID` is `proxy`. The plugin sets each model's `package` from
+`sdk.opencodeai`: OpenAI Chat Completions uses
+`@opencode/ai/providers/openai-compatible`, Anthropic Messages uses
+`@opencode/ai/providers/anthropic`, OpenAI Responses uses
+`@opencode/ai/providers/openai/responses`, and Google uses
+`@opencode/ai/providers/google`. The provider-level package is only the default
+for models without an override. On transform the plugin also ensures that
+default and sets `activation: "enabled"` before `editor.models.set("proxy",
+models)`. On the same transform it calls `editor.remove("opencode-go")`, so the
+model picker shows only `proxy` and cannot fall back to the built-in provider's
+blocked direct endpoint. Each refresh calls `ctx.provider.reload()`.
 
 If the initial load fails, the plugin logs the error and leaves the existing
 catalog alone. If `PROXY_BASE_URL` is missing, it logs and exits setup.
@@ -123,17 +152,17 @@ credential.
 
 ### Security
 
-- Keep `service.json` untracked. It holds the service password and the proxy key.
+- Keep `service.json` untracked. It holds the service password, the Worker key, and the upstream API key.
 - Rotate `PROXY_KEY` as soon as it is exposed, then update the Cloudflare secret and `service.json`.
 - Add a Cloudflare WAF rate limit, and disable the workers.dev route when you do not use it.
-- Never log the proxy key or the `Authorization` header.
+- Never log the proxy key, the upstream API key, or the `Authorization` header.
 - The Worker sends a browser User-Agent and strips client-identifying headers. Use it only where the provider terms allow that.
 
 ### Troubleshooting
 
 | Symptom | Cause |
 | --- | --- |
-| 401 `Unauthorized` | `x-proxy-key` is missing or does not match the Cloudflare secret |
+| 401 `Unauthorized` | `x-proxy-key` is missing or does not match the Cloudflare secret, or `PROXY_OPENCODE_GO_API_KEY` is missing or wrong |
 | 400 `MissingSessionID` | the client did not send `x-opencode-session` |
 | 404 `Not found` | the path is outside the Worker route list |
 | Plugin does not load | `PROXY_BASE_URL` is missing, or the service did not restart |
@@ -142,9 +171,9 @@ credential.
 
 Rejected alternatives: hardcoding the Worker URL and key in `opencode.jsonc`
 would put both in git; keeping the manual model list would duplicate
-`/v1/models`; renaming the provider ID to `proxy` would break the existing
-connection and agent references. Hashing the bearer token was considered, but a
-separate `x-proxy-key` rotates on its own and lets a WAF rule match on it.
+`/v1/models`; keeping only the built-in `opencode-go` provider cannot host
+models from more than one upstream. Hashing the bearer token was considered,
+but a separate `x-proxy-key` rotates on its own and lets a WAF rule match on it.
 
 ## Agents
 
