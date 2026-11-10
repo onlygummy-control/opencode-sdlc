@@ -22,7 +22,7 @@ upstream API key come from environment variables, so none enters git.
 
 | Path | Role |
 | --- | --- |
-| `worker.js` | Cloudflare Worker that proxies Go inference to `https://opencode.ai/inference/go` and Zen inference to `https://opencode.ai/inference` |
+| `proxy.js` | Cloudflare Worker that proxies Go inference to `https://opencode.ai/inference/go` and Zen inference to `https://opencode.ai/inference` |
 | `plugins/proxy-catalog.ts` | Server plugin that loads the Go and Zen catalogs from the proxy |
 | `opencode.jsonc` | Configures `proxy` against the Worker through `{env:...}` placeholders |
 | `service.json` | Local, gitignored file with the service password and the `PROXY_BASE_URL`, `PROXY_KEY`, and `PROXY_OPENCODE_API_KEY` environment |
@@ -32,7 +32,8 @@ The provider ID is `proxy`. It is a custom provider, so `opencode.jsonc`
 declares `package: "@opencode/ai/providers/openai-compatible"` as the default
 runtime and `env: ["PROXY_OPENCODE_API_KEY"]`. `settings.baseURL` is
 `{env:PROXY_BASE_URL}`, `headers.x-proxy-key` is `{env:PROXY_KEY}`, and
-`$schema` points at `https://opencode.ai/config.json`.
+`$schema` points at `https://opencode.ai/config.json`. That is the public editor
+schema; the Worker no longer proxies it.
 There is no `canonical`. The plugin supplies the models, so there is no manual
 `models` block.
 
@@ -46,7 +47,7 @@ upstream under the same provider.
 
 ### Set up the proxy
 
-1. Deploy `worker.js` to the Worker bound to your custom domain. Nothing in the repo deploys it, so use the Cloudflare dashboard or Wrangler.
+1. Deploy `proxy.js` to the Worker bound to your custom domain. Nothing in the repo deploys it, so use the Cloudflare dashboard or Wrangler.
 2. Add a `PROXY_KEY` secret to that same Worker in Cloudflare. Generate 32 random bytes:
 
    ```bash
@@ -85,17 +86,12 @@ Replace `<worker-host>` with the Worker host and set `PROXY_KEY` in your shell.
 ```bash
 curl -i "https://<worker-host>/v1/models"
 curl -i -H "x-proxy-key: $PROXY_KEY" "https://<worker-host>/v1/models"
-curl -i "https://<worker-host>/config.json"
-curl -i -X POST "https://<worker-host>/config.json"
 curl -i -X OPTIONS "https://<worker-host>/v1/models"
 ```
 
 - `/v1/models` returns 401 without a key and with a wrong key. With the right key it returns 200 and the model list.
-- `/config.json` returns 200 with `cache-control: public, max-age=3600`.
-- `POST /config.json` returns 405, and `OPTIONS` returns 204.
+- `OPTIONS` returns 204.
 - `GET /v1/unknown` returns 401 without a key, because the key is checked before the path.
-
-If `/config.json` still reports `max-age=0`, purge that path once at the edge.
 
 Then check the provider in the TUI:
 
@@ -153,7 +149,6 @@ does not cover.
 | --- | --- |
 | Routes | `/v1`, `/openai/v1`, `/anthropic/v1`, and `/google/v1beta` map to `https://opencode.ai/inference/go`; `/zen/...` maps to `https://opencode.ai/inference` |
 | Zen catalog | `/zen/v1/models` maps to the Zen catalog endpoint, `https://opencode.ai/inference/v1/models` |
-| Schema | `/config.json` is public and proxies `https://opencode.ai/config.json` with a one-hour cache |
 | Auth | `x-proxy-key` must match the `PROXY_KEY` secret; a missing secret fails closed with 401 |
 | Methods | `POST`, plus `GET` on paths ending in `/models`; `OPTIONS` answers 204 locally; other methods and paths are rejected |
 | Limits | 32 MB request body, 5 minute upstream timeout |
@@ -226,7 +221,6 @@ the stored OpenCode credential.
 | 404 `Not found` | the path is outside the Worker route list |
 | Plugin does not load | `PROXY_BASE_URL` is missing, or the service did not restart |
 | No models | `/v1/models` failed, or the plugin did not reload |
-| Old schema response | `/config.json` is still cached at the edge; purge it |
 
 Rejected alternatives: hardcoding the Worker URL and key in `opencode.jsonc`
 would put both in git; keeping the manual model list would duplicate

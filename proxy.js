@@ -3,7 +3,6 @@ const UPSTREAMS = {
   go: 'https://opencode.ai/inference/go',
   zen: 'https://opencode.ai/inference',
 }
-const SCHEMA_URL = 'https://opencode.ai/config.json'
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
 
@@ -47,30 +46,6 @@ function hasEncodedSeparator(pathname) {
     value = decoded
   }
   return true
-}
-
-async function proxySchema() {
-  try {
-    const upstream = await fetch(SCHEMA_URL, {
-      headers: { 'user-agent': BROWSER_UA },
-      cf: { cacheTtl: 3600, cacheEverything: true },
-    })
-
-    const headers = new Headers(upstream.headers)
-    headers.set('content-type', 'application/json; charset=utf-8')
-    headers.set('cache-control', 'public, max-age=3600')
-    headers.set('access-control-allow-origin', '*')
-    headers.delete('set-cookie')
-
-    return new Response(upstream.body, {
-      status: upstream.status,
-      statusText: upstream.statusText,
-      headers,
-    })
-  } catch (error) {
-    console.error('schema upstream failed', error)
-    return json(502, { error: 'Schema upstream failed' })
-  }
 }
 
 function forwardHeaders(request) {
@@ -117,13 +92,6 @@ function forwardHeaders(request) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
-
-    if (url.pathname === '/config.json') {
-      if (request.method !== 'GET') {
-        return json(405, { error: 'Method not allowed' })
-      }
-      return proxySchema()
-    }
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204 })
