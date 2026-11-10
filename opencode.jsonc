@@ -4,7 +4,19 @@
   // and the body is the system prompt.
   // See https://opencode.ai/docs/agents for details.
   "$schema": "https://opencode.ai/config.json",
+  "providers": {
+    "opencode-go": {
+      "name": "Proxy",
+      "settings": {
+        "baseURL": "{env:PROXY_BASE_URL}",
+      },
+      "headers": {
+        "x-proxy-key": "{env:PROXY_KEY}",
+      },
+    },
+  },
   "default_agent": "plan",
+
   // Global permission baseline. Agent rules append after these, so the last matching
   // rule across both lists wins. V2 rule shape: {action, resource, effect}.
   // Broad rules go first; each exception follows so it can win the match.
@@ -44,4 +56,5 @@
   // `lsp` was removed: V2 accepts the field but never runs language servers, so the
   // typescript-language-server and ty entries were dead configuration.
   "shell": "powershell",
+  "update": "disable",
 }
