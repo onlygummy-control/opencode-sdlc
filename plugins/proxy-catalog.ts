@@ -1,7 +1,15 @@
 import { Model, Plugin, Provider } from "@opencode/plugin"
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
+import { join } from "node:path"
+import { homedir } from "node:os"
 
 const PROVIDER_ID = "proxy"
 const REFRESH_MS = 30 * 60 * 1000
+const CATALOG_TIMEOUT_MS = 15_000
+const MAX_RETRIES = 3
+const CACHE_TTL_MS = 5 * 60 * 1000
+const CACHE_DIR = join(homedir(), ".cache", "opencode")
+const CACHE_FILE = join(CACHE_DIR, "proxy-catalog.json")
 
 type CatalogModel = {
   id: string
@@ -128,19 +136,50 @@ function toModel(
   } as unknown as Model.Info
 }
 
+function readCache(): { data: Model.Info[]; timestamp: number } | null {
+  try {
+    if (!existsSync(CACHE_FILE)) return null
+    const raw = readFileSync(CACHE_FILE, "utf-8")
+    const parsed = JSON.parse(raw) as { data: Model.Info[]; timestamp: number }
+    if (Date.now() - parsed.timestamp < CACHE_TTL_MS) return parsed
+    return null
+  } catch {
+    return null
+  }
+}
+
+function writeCache(models: Model.Info[]) {
+  try {
+    mkdirSync(CACHE_DIR, { recursive: true })
+    writeFileSync(CACHE_FILE, JSON.stringify({ data: models, timestamp: Date.now() }))
+  } catch {
+    // Cache write failure is non-fatal
+  }
+}
+
 async function loadCatalog(url: string, apiKey?: string): Promise<Catalog> {
   const headers: Record<string, string> = {}
   const proxyKey = process.env.PROXY_KEY
   if (proxyKey) headers["x-proxy-key"] = proxyKey
   if (apiKey) headers.authorization = `Bearer ${apiKey}`
 
-  const response = await fetch(url, {
-    headers,
-    signal: AbortSignal.timeout(5000),
-  })
-
-  if (!response.ok) throw new Error(`catalog ${response.status}`)
-  return response.json() as Promise<Catalog>
+  let lastError: Error | null = null
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers,
+        signal: AbortSignal.timeout(CATALOG_TIMEOUT_MS),
+      })
+      if (!response.ok) throw new Error(`catalog ${response.status}`)
+      return (await response.json()) as Catalog
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+      if (attempt < MAX_RETRIES - 1) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
+      }
+    }
+  }
+  throw lastError ?? new Error("catalog load failed")
 }
 
 export default Plugin.define({
@@ -189,11 +228,20 @@ export default Plugin.define({
       return models
     }
 
-    const initial = await load()
+    // Try cache first for fast startup
+    const cached = readCache()
+    let initial: Model.Info[] = cached?.data ?? []
+
+    if (initial.length === 0) {
+      initial = await load()
+    }
+
     if (initial.length === 0) {
       console.error("proxy catalog: catalog is empty")
       return
     }
+
+    writeCache(initial)
 
     const state = { models: initial }
 
@@ -211,13 +259,17 @@ export default Plugin.define({
         const next = await load()
         if (next.length === 0) return
         state.models = next
+        writeCache(next)
         await ctx.provider.reload()
       } catch (error) {
         console.error("proxy catalog: refresh failed", error)
       }
     }
 
-    const timer = setInterval(() => void refresh(), REFRESH_MS)
+    // Stagger refresh to avoid collision across sessions
+    const jitter = Math.floor(Math.random() * 60_000)
+
+    const timer = setInterval(() => void refresh(), REFRESH_MS + jitter)
     return () => clearInterval(timer)
   },
 })
