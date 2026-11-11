@@ -3,7 +3,6 @@
   // Each file's YAML frontmatter defines metadata (mode, model, permissions)
   // and the body is the system prompt.
   // See https://opencode.ai/docs/agents for details.
-  "$schema": "https://opencode.ai/config.json",
   "providers": {
     "proxy": {
       "name": "Proxy",
