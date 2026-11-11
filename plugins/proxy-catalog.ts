@@ -1,5 +1,5 @@
 import { Model, Plugin, Provider } from "@opencode/plugin"
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
+import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from "node:fs"
 import { join } from "node:path"
 import { homedir } from "node:os"
 
@@ -10,6 +10,19 @@ const MAX_RETRIES = 3
 const CACHE_TTL_MS = 5 * 60 * 1000
 const CACHE_DIR = join(homedir(), ".cache", "opencode")
 const CACHE_FILE = join(CACHE_DIR, "proxy-catalog.json")
+const LOG_FILE = join(CACHE_DIR, "proxy-catalog.log")
+
+function log(message: string) {
+  const timestamp = new Date().toISOString()
+  const line = `[${timestamp}] ${message}\n`
+  try {
+    mkdirSync(CACHE_DIR, { recursive: true })
+    appendFileSync(LOG_FILE, line)
+  } catch {
+    // Logging failure is non-fatal
+  }
+  console.error(line.trim())
+}
 
 type CatalogModel = {
   id: string
@@ -163,39 +176,58 @@ async function loadCatalog(url: string, apiKey?: string): Promise<Catalog> {
   if (proxyKey) headers["x-proxy-key"] = proxyKey
   if (apiKey) headers.authorization = `Bearer ${apiKey}`
 
+  log(`Loading catalog: ${url}`)
+
   let lastError: Error | null = null
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const start = Date.now()
     try {
+      log(`  Attempt ${attempt + 1}/${MAX_RETRIES}: fetching ${url}`)
       const response = await fetch(url, {
         headers,
         signal: AbortSignal.timeout(CATALOG_TIMEOUT_MS),
       })
+      const elapsed = Date.now() - start
+      log(`  Response: ${response.status} in ${elapsed}ms`)
       if (!response.ok) throw new Error(`catalog ${response.status}`)
-      return (await response.json()) as Catalog
+      const data = (await response.json()) as Catalog
+      log(`  Loaded ${data.data?.length ?? 0} models`)
+      return data
     } catch (error) {
+      const elapsed = Date.now() - start
       lastError = error instanceof Error ? error : new Error(String(error))
+      log(`  Attempt ${attempt + 1} failed after ${elapsed}ms: ${lastError.message}`)
       if (attempt < MAX_RETRIES - 1) {
-        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
+        const delay = 1000 * (attempt + 1)
+        log(`  Retrying in ${delay}ms...`)
+        await new Promise((r) => setTimeout(r, delay))
       }
     }
   }
+  log(`ERROR: All ${MAX_RETRIES} attempts failed for ${url}: ${lastError?.message}`)
   throw lastError ?? new Error("catalog load failed")
 }
 
 export default Plugin.define({
   id: "proxy.catalog",
   async setup(ctx) {
+    log("=== Plugin setup started ===")
+    log(`PROXY_BASE_URL: ${process.env.PROXY_BASE_URL ? "SET" : "MISSING"}`)
+    log(`PROXY_KEY: ${process.env.PROXY_KEY ? "SET" : "MISSING"}`)
+    log(`PROXY_OPENCODE_API_KEY: ${process.env.PROXY_OPENCODE_API_KEY ? "SET" : "MISSING"}`)
+
     const providerID = Provider.ID.make(PROVIDER_ID)
     const baseURL = process.env.PROXY_BASE_URL
     if (!baseURL) {
-      console.error("proxy catalog: PROXY_BASE_URL is not set")
+      log("ERROR: PROXY_BASE_URL is not set — exiting setup")
       return
     }
     let origin: string
     try {
       origin = new URL(baseURL).origin
+      log(`Origin parsed: ${origin}`)
     } catch {
-      console.error("proxy catalog: PROXY_BASE_URL is invalid")
+      log(`ERROR: PROXY_BASE_URL is invalid: ${baseURL}`)
       return
     }
 
@@ -203,28 +235,35 @@ export default Plugin.define({
     const zenURL = `${origin}/zen/v1/models`
     const zenKey = process.env.PROXY_OPENCODE_API_KEY
     if (!zenKey) {
-      console.error("proxy catalog: PROXY_OPENCODE_API_KEY is not set; Zen models are skipped")
+      log("WARNING: PROXY_OPENCODE_API_KEY is not set; Zen models are skipped")
+    } else {
+      log("PROXY_OPENCODE_API_KEY is set — Zen catalog will be loaded")
     }
 
     const load = async (): Promise<Model.Info[]> => {
       const models: Model.Info[] = []
 
+      log("Loading Go catalog...")
       try {
         const go = await loadCatalog(goURL)
         models.push(...go.data.map((entry) => toModel(providerID, origin, entry, false)))
+        log(`Go catalog loaded: ${go.data.length} models`)
       } catch (error) {
-        console.error("proxy catalog: Go load failed", error)
+        log(`ERROR: Go load failed: ${error instanceof Error ? error.message : String(error)}`)
       }
 
       if (zenKey) {
+        log("Loading Zen catalog...")
         try {
           const zen = await loadCatalog(zenURL, zenKey)
           models.push(...zen.data.map((entry) => toModel(providerID, origin, entry, true)))
+          log(`Zen catalog loaded: ${zen.data.length} models`)
         } catch (error) {
-          console.error("proxy catalog: Zen load failed", error)
+          log(`ERROR: Zen load failed: ${error instanceof Error ? error.message : String(error)}`)
         }
       }
 
+      log(`Total models loaded: ${models.length}`)
       return models
     }
 
@@ -232,19 +271,27 @@ export default Plugin.define({
     const cached = readCache()
     let initial: Model.Info[] = cached?.data ?? []
 
+    if (cached) {
+      log(`Cache hit: ${cached.data.length} models (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`)
+    } else {
+      log("Cache miss or expired — fetching from network")
+    }
+
     if (initial.length === 0) {
       initial = await load()
     }
 
     if (initial.length === 0) {
-      console.error("proxy catalog: catalog is empty")
+      log("ERROR: Catalog is empty — no models loaded")
       return
     }
 
     writeCache(initial)
+    log(`Cache written: ${initial.length} models`)
 
     const state = { models: initial }
 
+    log(`Registering ${state.models.length} models with provider...`)
     await ctx.provider.transform((editor) => {
       editor.remove("opencode-go")
       editor.update(PROVIDER_ID, (provider) => {
@@ -253,16 +300,22 @@ export default Plugin.define({
       })
       editor.models.set(PROVIDER_ID, state.models)
     })
+    log("Models registered successfully")
 
     const refresh = async () => {
+      log("Refresh triggered")
       try {
         const next = await load()
-        if (next.length === 0) return
+        if (next.length === 0) {
+          log("Refresh: no models returned, keeping existing")
+          return
+        }
         state.models = next
         writeCache(next)
         await ctx.provider.reload()
+        log(`Refresh complete: ${next.length} models`)
       } catch (error) {
-        console.error("proxy catalog: refresh failed", error)
+        log(`ERROR: Refresh failed: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
 
