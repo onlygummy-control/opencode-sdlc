@@ -293,13 +293,24 @@ export default Plugin.define({
 
     log(`Registering ${state.models.length} models with provider...`)
     await ctx.provider.transform((editor) => {
-      editor.remove("opencode-go")
+      try {
+        editor.remove("opencode-go")
+      } catch (e) {
+        log(`Note: opencode-go not present (ok): ${e instanceof Error ? e.message : String(e)}`)
+      }
       editor.update(PROVIDER_ID, (provider) => {
         provider.package ??= "@opencode/ai/providers/openai-compatible"
         provider.activation = "enabled"
       })
       editor.models.set(PROVIDER_ID, state.models)
     })
+    // Reload provider so OpenCode picks up the new models
+    try {
+      await ctx.provider.reload()
+      log("Provider reloaded successfully")
+    } catch (e) {
+      log(`WARNING: provider.reload() failed: ${e instanceof Error ? e.message : String(e)}`)
+    }
     log("Models registered successfully")
 
     const refresh = async () => {
@@ -312,6 +323,9 @@ export default Plugin.define({
         }
         state.models = next
         writeCache(next)
+        await ctx.provider.transform((editor) => {
+          editor.models.set(PROVIDER_ID, state.models)
+        })
         await ctx.provider.reload()
         log(`Refresh complete: ${next.length} models`)
       } catch (error) {
