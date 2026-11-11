@@ -240,6 +240,9 @@ export default Plugin.define({
       log("PROXY_OPENCODE_API_KEY is set — Zen catalog will be loaded")
     }
 
+    let goCount = 0
+    let zenCount = 0
+
     const load = async (): Promise<Model.Info[]> => {
       const models: Model.Info[] = []
 
@@ -247,6 +250,7 @@ export default Plugin.define({
       try {
         const go = await loadCatalog(goURL)
         models.push(...go.data.map((entry) => toModel(providerID, origin, entry, false)))
+        goCount = go.data.length
         log(`Go catalog loaded: ${go.data.length} models`)
       } catch (error) {
         log(`ERROR: Go load failed: ${error instanceof Error ? error.message : String(error)}`)
@@ -257,6 +261,7 @@ export default Plugin.define({
         try {
           const zen = await loadCatalog(zenURL, zenKey)
           models.push(...zen.data.map((entry) => toModel(providerID, origin, entry, true)))
+          zenCount = zen.data.length
           log(`Zen catalog loaded: ${zen.data.length} models`)
         } catch (error) {
           log(`ERROR: Zen load failed: ${error instanceof Error ? error.message : String(error)}`)
@@ -304,14 +309,22 @@ export default Plugin.define({
       })
       editor.models.set(PROVIDER_ID, state.models)
     })
-    // Reload provider so OpenCode picks up the new models
-    try {
-      await ctx.provider.reload()
-      log("Provider reloaded successfully")
-    } catch (e) {
-      log(`WARNING: provider.reload() failed: ${e instanceof Error ? e.message : String(e)}`)
-    }
     log("Models registered successfully")
+
+    // Show toast notification in TUI
+    try {
+      await ctx.client?.tui?.showToast?.({
+        body: {
+          title: "Proxy",
+          message: `Loaded ${state.models.length} models (${goCount} Go + ${zenCount} Zen)`,
+          variant: "success",
+          duration: 4000,
+        },
+      })
+    } catch (e) {
+      // Toast may not be available (headless mode) — non-fatal
+      log(`Toast not available: ${e instanceof Error ? e.message : String(e)}`)
+    }
 
     const refresh = async () => {
       log("Refresh triggered")
@@ -326,8 +339,21 @@ export default Plugin.define({
         await ctx.provider.transform((editor) => {
           editor.models.set(PROVIDER_ID, state.models)
         })
-        await ctx.provider.reload()
         log(`Refresh complete: ${next.length} models`)
+
+        // Show toast on refresh
+        try {
+          await ctx.client?.tui?.showToast?.({
+            body: {
+              title: "Proxy",
+              message: `Refreshed: ${next.length} models`,
+              variant: "info",
+              duration: 3000,
+            },
+          })
+        } catch {
+          // non-fatal
+        }
       } catch (error) {
         log(`ERROR: Refresh failed: ${error instanceof Error ? error.message : String(error)}`)
       }
